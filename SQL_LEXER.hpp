@@ -462,13 +462,13 @@ public:
                 }
                 else
                 {
-                    throw std::runtime_error("Parsing error at line " + std::to_string(lineNumber) + " at character " + std::to_string(characterNumber) + " - unexpected character: " + current);
+                    throw std::runtime_error("Line -" + std::to_string(lineNumber) + "cannot be parsed at character " + std::to_string(characterNumber) + " - unexpected character: " + current);
                 }
                 break;
             }
         }
         
-        tokens.push_back(addToken(TokenType::END_OF_FILE, ""));
+        tokens.push_back(addToken(TokenType::END_OF_FILE, " "));
         return tokens;
     }
 };
