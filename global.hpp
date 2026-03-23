@@ -21,10 +21,17 @@
 #include "databaseSchemaReader.hpp"
 #include "storageTree.hpp"
 
-extern std::thread vacuumThread;
+#define RESET "\033[0m"
+#define GREEN "\033[1;32m"
+#define YELLOW "\033[1;33m"
+#define CYAN "\033[1;36m"
+
+// extern std::thread vacuumThread;
 
 
 // Memory structures
+
+
 
 struct MemoryEntry {
     std::string value;
@@ -33,12 +40,12 @@ struct MemoryEntry {
 
 
 // Main store
-extern std::unordered_map<std::string, MemoryEntry> memoryStore;
+// extern std::unordered_map<std::string, MemoryEntry> memoryStore;
 
-// Reader-writer lock
-extern std::shared_mutex memoryMutex;
-extern std::unordered_map<std::string, std::mutex> tableLocks;
-extern std::mutex dbMutex;
+// // Reader-writer lock
+// extern std::shared_mutex memoryMutex;
+// extern std::unordered_map<std::string, std::mutex> tableLocks;
+// extern std::mutex dbMutex;
 // TTL scheduler heap
 struct ExpiryNode {
     std::chrono::steady_clock::time_point expiry;
@@ -158,7 +165,14 @@ enum class ASTNodeType
     LIMIT_CLAUSE,
     WHERE_CLAUSE,
     DROP_STATEMENT,
-    CREATE_STATEMENT
+    LIST_STATEMENT,
+    CREATE_STATEMENT,
+
+
+
+    // HFT_STATEMENT
+    ADD_HFT_INDICATOR_STATEMENT,
+    ADD_HFT_INDICATOR_ON_TABLE_STATEMENT
 };
 
 enum class LogicalOperator
@@ -342,6 +356,39 @@ struct CreateStatement : public ASTNode
 };
 
 
+struct AddHftIndicatorStatement : public ASTNode{
+
+    // int64_t symbol;
+    std::string file_path;
+    // int64_t column_no;
+    ASTNodeType getType() const override { return ASTNodeType::ADD_HFT_INDICATOR_STATEMENT; }
+    void print(){
+        std::cout<<" the file path is "<<file_path <<"\n";
+    }
+}; 
+
+
+struct AddIndicatorOnTableStatement: public ASTNode{
+
+    std::pair<std::string,std::string> indicator;
+    int64_t column_no = -1;
+    int64_t symbol  = -1;
+    ASTNodeType getType() const override { return ASTNodeType::ADD_HFT_INDICATOR_ON_TABLE_STATEMENT; }
+    
+    
+};
+
+struct LISTStatement: public ASTNode{
+
+    bool isStrategy = false;
+    bool isTable = false;
+    std::string tableName = "";
+    std::string message;
+    ASTNodeType getType() const override { return ASTNodeType::LIST_STATEMENT; }
+    void print(){
+        // std::cout<<"the symobl is "<<symbol<<" the file path is "<<file_path <<" the column no is "<<column_no<<"\n";
+    }
+};
 
 struct InsertStatement
 {

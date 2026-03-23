@@ -1,0 +1,5 @@
+ADD HFT INDICATOR FROM FILE '/home/shivam/Desktop/learning/NanoVaultdp/NanoVaultDb/m_way_tree.cpp';
+ADD INDICATOR "INDICATOR_NAME" ON SYMBOL 2 COLUMN_NO = 3;
+if no column then -1
+LIST STRATEGY ;
+LIST TABLE TABLE_NAME;

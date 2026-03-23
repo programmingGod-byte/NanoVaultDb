@@ -4,7 +4,9 @@
 
 #include "utils/types.hpp"
 #include <arpa/inet.h>
+#include <atomic>
 #include <cstdint>
+#include <cstring>
 #include <endian.h>
 #include <iostream>
 #include <sys/socket.h>
@@ -17,19 +19,26 @@ namespace NetFeed {
 constexpr int PORT = 9090;
 
 FORCE_INLINE int64_t read_be64(const char *p) {
-  return be64toh(*(const int64_t *)p);
+    int64_t val;
+    memcpy(&val, p, sizeof(val));
+    return be64toh(val);
 }
-
 COLD void packet_error() {
   std::cerr << "Invalid packet\n";
 }
 int64_t count = 0;
 
-HOT void process_packet(const char *__restrict buffer, ssize_t n) {
+HOT void process_packet(const HFTStorage::Packet& packet, ssize_t n) {
+    const char * __restrict__ buffer = packet.data;
     count++;
-    std::cout << "packet processing\n";
 
     const int64_t tick = read_be64(buffer);
+    if (UNLIKELY(tick < 0 || tick >= HFT::MAXHFTSYMBOL)) {
+      std::cout << "Invalid tick index: " << tick << "\n";
+      return;
+}
+
+
     std::cout << "tick = " << tick << "\n";
 
     auto *__restrict entry = &HFT::symbolAccessArray[tick];
@@ -86,7 +95,7 @@ HOT void process_packet(const char *__restrict buffer, ssize_t n) {
 
     std::cout << "ticks " << entry->symbol
               << " latest price "
-              << entry->history[entry->symbol].latest_ptr()
+              << *entry->history[entry->symbol].latest_ptr()
               << "\n";
 }
 
@@ -109,7 +118,7 @@ void run_receiver() {
     return;
   }
 
-  alignas(CACHELINE) char buffer[1024];
+  alignas(CACHELINE) char buffer[HFTStorage::PacketSize];
 
   while (true) {
 
@@ -121,8 +130,26 @@ void run_receiver() {
       continue;
     }
 
-    process_packet(buffer, n);
+    HFTStorage::Packet pkt;
+    pkt.size = n;
+    memcpy(pkt.data, buffer, n);
+
+    if (UNLIKELY(!HFTStorage::PacketParseQueue.push(pkt))) {
+        HFTStorage::dropped.fetch_add(1,std::memory_order_relaxed);
+    }
+
+    // process_packet(buffer, n);
     std::cout<<"count "<<count<<"\n";
+  }
+}
+
+
+void run_packet_parser(){
+  HFTStorage::Packet pkt;
+  while (true) {
+    if(HFTStorage::PacketParseQueue.pop(pkt)){
+      process_packet(pkt, pkt.size);
+    }
   }
 }
 

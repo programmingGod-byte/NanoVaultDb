@@ -2,6 +2,7 @@
 #define MYUTILITY_UTILITY_HPP
 
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <memory>
 #include <stdexcept>
@@ -76,13 +77,36 @@ namespace MyUtility
         }
     }
 
-    bool checkIfFileExist(const std::string &filePath)
-    {
-        if (fs::exists(filePath))
-        {
-            return true;
+    bool checkIfFileExist(std::string filePath)
+{
+    filePath.erase(std::remove(filePath.begin(), filePath.end(), '\r'), filePath.end());
+    filePath.erase(std::remove(filePath.begin(), filePath.end(), '\n'), filePath.end());
+
+    std::error_code ec;
+    bool ok = std::filesystem::exists(filePath, ec);
+
+    if (ec)
+        std::cout << "FS ERROR: " << ec.message() << "\n";
+
+    return ok;
+}
+
+    std::pair<bool,std::string> readAFile(const std::string & filePath){
+        if(checkIfFileExist(filePath)){
+            std::ifstream file(filePath);
+
+            if(!file.is_open()){
+                return {false,nullptr};
+            }
+            std::stringstream buffer;
+            buffer<<file.rdbuf();
+
+            std::string content  =buffer.str();
+            file.close();
+
+            return {true,content    };
         }
-        return false;
+        return {false,nullptr};
     }
 
     void changeCurrentDb(const std::string &newDbName)

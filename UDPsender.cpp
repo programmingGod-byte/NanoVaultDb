@@ -57,14 +57,15 @@ int main(int argc, char* argv[]) {
         TickPacket pkt;
 
         pkt.tick = htobe64((uint64_t)to_fixed(2, 0));
-        pkt.timestamp = htobe64((uint64_t)now_us());
+        int64_t ts = now_us();
+        pkt.timestamp = htobe64((uint64_t)ts);
         pkt.price     = htobe64((uint64_t)to_fixed(price,  10));
         pkt.volume    = htobe64((uint64_t)to_fixed(volume,  2));
-        pkt.side      = htobe64((uint64_t)(count % 3));  // BUY/SELL/UNK
-        pkt.askOrder = htobe64((uint64_t)to_fixed(74300.53000000, 8));
-        pkt.askQuantity = htobe64((uint64_t)to_fixed(4.51596000, 8));
-        pkt.bidOrder = htobe64((uint64_t)to_fixed(74300.52000000, 8));
-        pkt.bidQuantity = htobe64((uint64_t)to_fixed(74300.52000000, 8));
+        pkt.side      = htobe64((uint64_t)to_fixed((count % 3), 2));  // BUY/SELL/UNK
+        pkt.askOrder = htobe64((uint64_t)to_fixed(74300.53000000, 10));
+        pkt.askQuantity = htobe64((uint64_t)to_fixed(4.51596000, 10));
+        pkt.bidOrder = htobe64((uint64_t)to_fixed(74300.52000000, 10));
+        pkt.bidQuantity = htobe64((uint64_t)to_fixed(74300.52000000, 10));
         ssize_t sent = sendto(sock,
                               &pkt, sizeof(pkt), 0,
                               (sockaddr*)&dest, sizeof(dest));
@@ -73,6 +74,7 @@ int main(int argc, char* argv[]) {
         }
 
         std::cout << "sent tick #" << count
+                <<" timestamp "<<ts
                   << "  price=" << price
                   << "  vol="   << volume
                   << "  side="  << (count % 3) << "\n";

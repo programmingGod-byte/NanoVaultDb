@@ -43,7 +43,7 @@ vector<string> exec_rem_sqls() {
         }
     }
 
-    if (!curr.empty()) {
+    if (!curr.empty() && curr.find_first_not_of(" \n\r\t") != string::npos) {
         leftoverSQLs.push_back(curr);
     }
 

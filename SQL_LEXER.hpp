@@ -78,7 +78,14 @@ enum class TokenType
     HFT,
     TICK_SIDE, // 0 for buy 1 for sell 2 for unknow
     SYMBOL,
-    TOP
+    TOP,
+    ADD,
+    INDICATOR,
+    FILE,
+    ON,
+    COLUMN_NO,
+    LIST,
+    STRATEGY
 };
 
 // Make these static const to avoid multiple definition errors
@@ -91,6 +98,13 @@ static const std::unordered_map<std::string, TokenType> keywords = {
     {"hft",TokenType::HFT},
     {"symbol",TokenType::SYMBOL},
     {"top",TokenType::TOP},
+    {"add",TokenType::ADD},
+    {"indicator",TokenType::INDICATOR},
+    {"file",TokenType::FILE},
+    {"on",TokenType::ON},
+    {"column_no",TokenType::COLUMN_NO},
+    {"list",TokenType::LIST},
+    {"strategy",TokenType::STRATEGY},
 
 
     {"select", TokenType::SELECT},
@@ -150,8 +164,14 @@ std::string typeToString(TokenType TYPE)
     case TokenType::HFT: return "HFT";
     case TokenType::SYMBOL: return "SYMBOL";
     case TokenType::TOP: return "TOP";
-    
-        // Keywords
+    case TokenType::ADD: return "ADD";
+    case TokenType::INDICATOR: return "indicator";
+    case TokenType::FILE: return "file";
+    case TokenType::ON: return "on";
+    case TokenType::COLUMN_NO:return "column_no";
+    case TokenType::LIST : return "list";
+    case TokenType::STRATEGY: return "strategy";
+
     
     case TokenType::SELECT: return "SELECT";
     case TokenType::FROM: return "FROM";

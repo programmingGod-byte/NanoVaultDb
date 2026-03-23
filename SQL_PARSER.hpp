@@ -2,11 +2,14 @@
 #ifndef __PARSER_AST_HPP
 #define __PARSER_AST_HPP
 
+#include <charconv>
 #include <cstdint>
 #include "hft.hpp"
+#include <exception>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 #include <memory>
 #include <stdexcept>
@@ -18,6 +21,7 @@
 #include "utility.hpp"
 #include "generator.hpp"
 #include "selectAstEvaluator.hpp"
+#include "FastIndicators.hpp"
 #include "initialLoad.hpp"
 
 namespace fs = std::filesystem; // Shorthand for std::filesystem
@@ -160,7 +164,7 @@ public:
 
         expect(TokenType::OPEN_PAREN, "Expected '(' before column list");
 
-        // Parse columns
+        // Parse columnsParse 
         do {
         Token *col = expect(TokenType::IDENTIFIER, "Expected column name");
         stmt->columns.push_back(col->VALUE);
@@ -370,6 +374,32 @@ public:
         
         return stmt;
     }
+
+    std::unique_ptr<LISTStatement> parseListStatement(){
+        rewind();
+        std::unique_ptr<LISTStatement> statment = std::make_unique<LISTStatement>();
+        expect(TokenType::LIST, "expect key word list");
+        std::stringstream message;
+        if(match(TokenType::STRATEGY)){
+            for(auto it = HFT::InitalStorage::Indicators.begin(); it!=HFT::InitalStorage::Indicators.end();it++){
+                std::string name = it->first;
+                std::string file_path  = it->second.first;
+                message << "indicator ";
+                message <<GREEN<< name <<  RESET <<" file path is "<<GREEN<<file_path<< RESET << "\n";
+                
+            }
+            statment->isStrategy = true;
+            statment->message = message.str();
+            expect(TokenType::SEMICOLON, "epect token type semi colon at end");
+            return statment;
+        }else if(match(TokenType::TABLE)){
+            
+        }
+
+        throw std::runtime_error("error expect either strategy or TABLE TABLE_NAME with LIST");
+    }
+
+
     std::unique_ptr<CreateStatement> parseCreateStatement()
     {
         expect(TokenType::CREATE, "Expected CREATE keyword");
@@ -630,9 +660,40 @@ public:
         return stmt;
     }
 
-    // =====================
-    // AST Parser (SELECT)
-    // =====================
+    
+    std::unique_ptr<AddIndicatorOnTableStatement> parseAddIndicatorOnTableStatement(){
+            expect(TokenType::ADD, "expect Token type add");
+            expect(TokenType::INDICATOR, "expect token type indictor");
+
+            
+            std::string indicatorName ;
+            Token * indicator = expect(TokenType::STRING, "expect indicator name as string");
+            indicatorName = indicator->VALUE;
+
+            expect(TokenType::ON, "expect token ON after indicator");
+            expect(TokenType::SYMBOL,"expect token type symbol");
+
+            int64_t symbol ;
+            Token * symBolToken = expect(TokenType::INT, "expect symbol to be int");
+            std::from_chars(symBolToken->VALUE.data(),symBolToken->VALUE.data() +  symBolToken->VALUE.size(),symbol);
+
+            expect(TokenType::COLUMN_NO, "expect token COLUMN_NO");
+            int64_t columnNo;
+
+            if(match(TokenType::MINUS)){
+                Token *columnSymbol = expect(TokenType::NUMBER, "expect a number");
+                columnNo = -1;
+                //  std::from_chars(columnSymbol->VALUE.data(),columnSymbol->VALUE.data() +  columnSymbol->VALUE.size(),columnNo);
+            }else{
+                rewind();
+                Token *columnSymbol = expect(TokenType::NUMBER, "expect a number");
+                 std::from_chars(columnSymbol->VALUE.data(),columnSymbol->VALUE.data() +  columnSymbol->VALUE.size(),columnNo);
+            }
+            
+            
+            expect(TokenType::SEMICOLON, "expect token ;");
+
+    }
 
     std::unique_ptr<SelectStatement> parseSelectStatement()
     {
@@ -899,7 +960,21 @@ public:
 
             return e.str();
         }
-        } else if (match(TokenType::INSERT)) {
+        
+        } 
+        else if(match(TokenType::LIST)){
+            try {
+                std::unique_ptr<LISTStatement> statement = parseListStatement();
+                return statement->message;
+            } catch (const std::exception & err) {
+                 std::stringstream e;
+            e << "{" << "\"success\": false, " << "\"error\": \"\033[31m"
+            << err.what() << "\033[0m\"" << "}";
+
+            return e.str();
+            }
+        }
+        else if (match(TokenType::INSERT)) {
         rewind();
         try {
 
@@ -1002,9 +1077,79 @@ public:
 
             return e.str();
         }
-        } else {
+        } 
+        
+        else if(match(TokenType::ADD)){
+            if(match(TokenType::INDICATOR)){
+                rewind();
+                rewind();
+
+                return r;   
+            }
+            rewind();
+            rewind();
+            try {
+            std::unique_ptr<AddHftIndicatorStatement> statement = parseAddHftIndicatorStatement();
+            statement->print();
+            try {
+            IndicatorHandler::parseIndicators(std::move(statement));
+            } catch (const std::exception & err) {
+                std::stringstream e;
+                  e << "{" << "\"success\": false, " << "\"error\": \"\033[31m"
+            << err.what() << "\033[0m\"" << "}";
+
+            return e.str();
+            }
+            return r;
+            } catch (const std::exception &err) {
+                std::stringstream e;
+                  e << "{" << "\"success\": false, " << "\"error\": \"\033[31m"
+            << err.what() << "\033[0m\"" << "}";
+
+            return e.str();
+            }
+        }else {
         throw std::runtime_error("Unsupported SQL statement or missing statement "
                                 "type (CREATE, INSERT, SELECT, DROP, USE, MEMORY)");
+        }
+    }
+
+
+    std::unique_ptr<AddHftIndicatorStatement> parseAddHftIndicatorStatement(){
+        expect(TokenType::ADD, "expected token type add");
+        expect(TokenType::HFT, "expect token type HFT");
+        if(match(TokenType::INDICATOR)){
+            std::string file_path;
+            int64_t symbol;
+            int64_t column_no = -1;
+            expect(TokenType::FROM, "expect token type from");
+            expect(TokenType::FILE, "expect token type file");
+
+            Token * file = expect(TokenType::STRING, "expect a file path in string ");
+            file_path = file->VALUE;
+
+            // expect(TokenType::ON, "expected on keyword after file path");
+            // expect(TokenType::SYMBOL, "expect tooken type symbol");
+
+            // Token * symbolToken = expect(TokenType::NUMBER, "expected symbol to be a number");
+            // std::from_chars(symbolToken->VALUE.data(),symbolToken->VALUE.data()+symbolToken->VALUE.size(),symbol);
+
+            // if(match(TokenType::COLUMN_NO)){
+            //     expect(TokenType::EQUAL, "expected token = after column no ");
+
+            //     Token * columnToken = expect(TokenType::NUMBER, "expected column to be a number");
+            //      std::from_chars(columnToken->VALUE.data(),columnToken->VALUE.data() + columnToken->VALUE.size(),column_no);
+            // }else{
+            //     expect(TokenType::SEMICOLON, "expected ;");
+            // }
+
+            expect(TokenType::SEMICOLON, "expected token ;");
+            std::unique_ptr<AddHftIndicatorStatement> statement = std::make_unique<AddHftIndicatorStatement>();
+            // statement->symbol = symbol;
+            statement->file_path = file_path;
+            // statement->column_no   = column_no;
+
+            return std::move(statement);
         }
     }
 

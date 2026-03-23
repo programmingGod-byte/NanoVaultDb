@@ -85,10 +85,14 @@ int main()
     
     vector<string>rem_sqls=exec_rem_sqls();
     for (string s:rem_sqls){
-        Lexer lexer(s);
-        vector<Token*> tokens = lexer.tokenize();
-        Parser parser(tokens);
-        std::string output =  parser.parse();
+        try {
+            Lexer lexer(s);
+            vector<Token*> tokens = lexer.tokenize();
+            Parser parser(tokens);
+            std::string output =  parser.parse();
+        } catch(const std::exception& e) {
+            cerr << "Warning: Failed to execute recovered SQL -> " << e.what() << endl;
+        }
     }
 
     int historyIndex = 0;

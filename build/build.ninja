@@ -12,7 +12,7 @@
 
 # =============================================================================
 # Project: main
-# Configurations: 
+# Configurations: Debug
 # =============================================================================
 
 #############################################
@@ -20,6 +20,11 @@
 
 ninja_required_version = 1.5
 
+
+#############################################
+# Set configuration variable for custom commands.
+
+CONFIGURATION = Debug
 # =============================================================================
 # Include auxiliary files.
 
@@ -44,9 +49,9 @@ cmake_ninja_workdir = /home/shivam/Desktop/learning/NanoVaultdp/NanoVaultDb/buil
 
 build cmake_object_order_depends_target_main: phony || CMakeFiles/main.dir
 
-build CMakeFiles/main.dir/main.cpp.o: CXX_COMPILER__main_unscanned_ /home/shivam/Desktop/learning/NanoVaultdp/NanoVaultDb/main.cpp || cmake_object_order_depends_target_main
+build CMakeFiles/main.dir/main.cpp.o: CXX_COMPILER__main_unscanned_Debug /home/shivam/Desktop/learning/NanoVaultdp/NanoVaultDb/main.cpp || cmake_object_order_depends_target_main
   DEP_FILE = CMakeFiles/main.dir/main.cpp.o.d
-  FLAGS = -O3 -march=native -std=gnu++20
+  FLAGS = -g -std=gnu++20 -Wall -Wextra -fdiagnostics-color=always -O0 -g -fsanitize=address -fno-omit-frame-pointer
   OBJECT_DIR = CMakeFiles/main.dir
   OBJECT_FILE_DIR = CMakeFiles/main.dir
 
@@ -58,8 +63,9 @@ build CMakeFiles/main.dir/main.cpp.o: CXX_COMPILER__main_unscanned_ /home/shivam
 #############################################
 # Link the executable main
 
-build main: CXX_EXECUTABLE_LINKER__main_ CMakeFiles/main.dir/main.cpp.o
-  FLAGS = -O3 -march=native
+build main: CXX_EXECUTABLE_LINKER__main_Debug CMakeFiles/main.dir/main.cpp.o
+  FLAGS = -g
+  LINK_FLAGS = -fsanitize=address
   OBJECT_DIR = CMakeFiles/main.dir
   POST_BUILD = :
   PRE_LINK = :

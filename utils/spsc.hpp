@@ -12,31 +12,35 @@ class SPSCQueue
     alignas(64) T buffer_[Capacity];
 
 public:
-    FORCE_INLINE bool push(const T &item) noexcept
-    {
-        const size_t h = head_.load(std::memory_order_relaxed);
-        const size_t next = (h + 1) & MASK;
+    FORCE_INLINE bool push(const T& item) noexcept {
+    const size_t h = head_.load(std::memory_order_relaxed);
+    const size_t t = tail_.load(std::memory_order_acquire);
 
-        if (next == tail_.load(std::memory_order_acquire))
-        {
-            return false;
-        }
-
-        buffer_[h] = item;
-        head_.store(h + 1, std::memory_order_release);
-        return true;
+    // queue full
+    if ((h - t) == Capacity - 1) {
+        return false;
     }
 
+    buffer_[h & MASK] = item;
+
+    head_.store(h + 1, std::memory_order_release);
+    return true;
+}
    
-    FORCE_INLINE bool pop(T & item) noexcept{
-        const size_t t = tail_.load(std::memory_order_relaxed);
-        if(t == head_.load(std::memory_order_acquire)){
-            return false;
-        }
-        item = buffer_[t];
-        tail_.store(t+1,std::memory_order_release);
-        return true;       
-    };
+    FORCE_INLINE bool pop(T& item) noexcept {
+    const size_t t = tail_.load(std::memory_order_relaxed);
+    const size_t h = head_.load(std::memory_order_acquire);
+
+    // queue empty
+    if (t == h) {
+        return false;
+    }
+
+    item = buffer_[t & MASK];
+
+    tail_.store(t + 1, std::memory_order_release);
+    return true;
+}
 
     [[nodiscard]] FORCE_INLINE bool empty() const noexcept{
         return head_.load(std::memory_order_relaxed) == tail_.load(std::memory_order_relaxed);
