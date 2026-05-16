@@ -1,139 +1,212 @@
 #pragma once
 #include <algorithm>
-#include <cstdint>
+#include <chrono>
 #include <cmath>
-#include <vector>
-#include <string>
-#include <sstream>
+#include <cstdint>
+#include <fstream>
 #include <iomanip>
-#include <functional>
 #include <iostream>
-#include "utils/rdtsc.hpp"   // your rdtsc_start / rdtsc_end / cycles_to_ns header
+#include <sstream>
+#include <string>
+#include <vector>
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Stats
+//  Bench  —  start / end style micro-benchmark
+//
+//  Usage:
+//
+//      Bench b("my_bench");          // optional label
+//      b.start(1'000'000);           // number of iterations you plan to run
+//
+//      for (uint64_t i = 0; i < b.iterations(); ++i) {
+//          b.tick();                 // snapshot time BEFORE your work
+//          do_work();
+//          b.tock();                 // snapshot time AFTER your work
+//      }
+//
+//      b.end();                      // computes stats, prints + saves .txt
+//
+//  OR — even simpler, time a lambda:
+//
+//      b.start(1'000'000);
+//      b.run([&]{ do_work(); });     // calls tick/tock automatically
+//      b.end();
+//
 // ─────────────────────────────────────────────────────────────────────────────
 
-struct BenchStats {
-    double min_ns   = 0;
-    double max_ns   = 0;
-    double mean_ns  = 0;
-    double p50_ns   = 0;
-    double p90_ns   = 0;
-    double p99_ns   = 0;
-    double p999_ns  = 0;
-    double stddev_ns= 0;
-    uint64_t samples= 0;
+class Bench {
+public:
+    // ── Construction ─────────────────────────────────────────────────────────
 
-    // Returns the value at an arbitrary percentile in [0,100].
-    double percentile_ns(double pct) const;
+    explicit Bench(const std::string& label = "bench",
+                   const std::string& output_file = "")
+        : label_(label)
+        , output_file_(output_file.empty() ? label + "_results.txt" : output_file)
+    {}
 
-    std::string to_string(const std::string& label = "") const;
-    void print(const std::string& label = "") const;
-};
+    // ── Control ──────────────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Percentile helper — works on a *sorted* copy of raw nanosecond samples.
-//  We keep the sorted vector inside BenchResult for reuse.
-// ─────────────────────────────────────────────────────────────────────────────
+    /// Prepare for `n` iterations (reserves memory, resets state).
+    void start(uint64_t n) {
+        iterations_ = n;
+        samples_.clear();
+        samples_.reserve(n);
+        running_ = true;
+    }
 
-struct BenchResult {
-    BenchStats           stats;
-    std::vector<double>  sorted_ns;   // sorted nanosecond samples
+    /// Record start of one iteration.
+    inline void tick() {
+        t_start_ = now_ns();
+    }
 
-    // Query any percentile without re-sorting.
+    /// Record end of one iteration and store the elapsed time.
+    inline void tock() {
+        double elapsed = now_ns() - t_start_;
+        samples_.push_back(elapsed);
+    }
+
+    /// Convenience: run a zero-argument callable `iterations_` times,
+    /// automatically calling tick/tock around each call.
+    template<typename Fn>
+    void run(Fn&& fn) {
+        for (uint64_t i = 0; i < iterations_; ++i) {
+            tick();
+            fn();
+            tock();
+        }
+    }
+
+    /// Finish: compute statistics, print to stdout, save to file.
+    void end() {
+        if (!running_ || samples_.empty()) {
+            std::cerr << "[Bench] end() called with no samples.\n";
+            return;
+        }
+        running_ = false;
+        compute_stats();
+        print_stats();
+        save_stats();
+    }
+
+    // ── Accessors ─────────────────────────────────────────────────────────────
+
+    uint64_t iterations()  const { return iterations_; }
+    double   min_ns()      const { return stats_.min_ns;     }
+    double   max_ns()      const { return stats_.max_ns;     }
+    double   mean_ns()     const { return stats_.mean_ns;    }
+    double   stddev_ns()   const { return stats_.stddev_ns;  }
+    double   p50_ns()      const { return stats_.p50_ns;     }
+    double   p90_ns()      const { return stats_.p90_ns;     }
+    double   p99_ns()      const { return stats_.p99_ns;     }
+    double   p999_ns()     const { return stats_.p999_ns;    }
+
+    /// Query any arbitrary percentile (0–100) after end() has been called.
     double percentile(double pct) const {
-        if (sorted_ns.empty()) return 0.0;
-        pct = std::clamp(pct, 0.0, 100.0);
-        double idx = (pct / 100.0) * static_cast<double>(sorted_ns.size() - 1);
-        size_t lo  = static_cast<size_t>(idx);
-        size_t hi  = std::min(lo + 1, sorted_ns.size() - 1);
-        double frac= idx - static_cast<double>(lo);
-        return sorted_ns[lo] * (1.0 - frac) + sorted_ns[hi] * frac;
+        return pct_from_sorted(sorted_, pct);
     }
+
+private:
+    // ── Internal types ────────────────────────────────────────────────────────
+
+    struct Stats {
+        double   min_ns    = 0;
+        double   max_ns    = 0;
+        double   mean_ns   = 0;
+        double   stddev_ns = 0;
+        double   p50_ns    = 0;
+        double   p90_ns    = 0;
+        double   p99_ns    = 0;
+        double   p999_ns   = 0;
+        uint64_t samples   = 0;
+    };
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    static inline double now_ns() {
+        using namespace std::chrono;
+        return static_cast<double>(
+            duration_cast<nanoseconds>(
+                steady_clock::now().time_since_epoch()).count());
+    }
+
+    static double pct_from_sorted(const std::vector<double>& sv, double p) {
+        if (sv.empty()) return 0.0;
+        p = std::clamp(p, 0.0, 100.0);
+        double idx = (p / 100.0) * static_cast<double>(sv.size() - 1);
+        size_t lo  = static_cast<size_t>(idx);
+        size_t hi  = std::min(lo + 1, sv.size() - 1);
+        double frac = idx - static_cast<double>(lo);
+        return sv[lo] * (1.0 - frac) + sv[hi] * frac;
+    }
+
+    void compute_stats() {
+        sorted_ = samples_;
+        std::sort(sorted_.begin(), sorted_.end());
+
+        const size_t n = sorted_.size();
+        stats_.samples = n;
+        stats_.min_ns  = sorted_.front();
+        stats_.max_ns  = sorted_.back();
+
+        double sum = 0.0;
+        for (double v : samples_) sum += v;
+        stats_.mean_ns = sum / static_cast<double>(n);
+
+        double var = 0.0;
+        for (double v : samples_) var += (v - stats_.mean_ns) * (v - stats_.mean_ns);
+        stats_.stddev_ns = std::sqrt(var / static_cast<double>(n));
+
+        stats_.p50_ns  = pct_from_sorted(sorted_, 50.0);
+        stats_.p90_ns  = pct_from_sorted(sorted_, 90.0);
+        stats_.p99_ns  = pct_from_sorted(sorted_, 99.0);
+        stats_.p999_ns = pct_from_sorted(sorted_, 99.9);
+    }
+
+    // ── Formatting ────────────────────────────────────────────────────────────
+
+    std::string build_report() const {
+        auto fmt = [](double v) -> std::string {
+            std::ostringstream o;
+            o << std::fixed << std::setprecision(2) << v;
+            return o.str();
+        };
+
+        std::ostringstream oss;
+        oss << "=== " << label_ << " ===\n"
+            << "  samples   : " << stats_.samples          << "\n"
+            << "  min       : " << fmt(stats_.min_ns)    << " ns\n"
+            << "  mean      : " << fmt(stats_.mean_ns)   << " ns\n"
+            << "  stddev    : " << fmt(stats_.stddev_ns) << " ns\n"
+            << "  p50       : " << fmt(stats_.p50_ns)    << " ns\n"
+            << "  p90       : " << fmt(stats_.p90_ns)    << " ns\n"
+            << "  p99       : " << fmt(stats_.p99_ns)    << " ns\n"
+            << "  p99.9     : " << fmt(stats_.p999_ns)   << " ns\n"
+            << "  max       : " << fmt(stats_.max_ns)    << " ns\n";
+        return oss.str();
+    }
+
+    void print_stats() const {
+        std::cout << build_report();
+    }
+
+    void save_stats() const {
+        std::ofstream f(output_file_);
+        if (!f) {
+            std::cerr << "[Bench] Could not open '" << output_file_ << "' for writing.\n";
+            return;
+        }
+        f << build_report();
+        std::cout << "[Bench] Results saved to '" << output_file_ << "'\n";
+    }
+
+    // ── Members ───────────────────────────────────────────────────────────────
+
+    std::string          label_;
+    std::string          output_file_;
+    uint64_t             iterations_ = 0;
+    bool                 running_    = false;
+    double               t_start_    = 0.0;
+    std::vector<double>  samples_;
+    std::vector<double>  sorted_;
+    Stats                stats_;
 };
-
-inline BenchResult benchmark(
-    const std::function<void()>& fn,
-    uint64_t iterations = 10'000,
-    uint64_t warmup     = 1'000)
-{
-    // Warmup
-    for (uint64_t i = 0; i < warmup; ++i) fn();
-
-    std::vector<double> samples;
-    samples.reserve(iterations);
-
-    for (uint64_t i = 0; i < iterations; ++i) {
-        uint64_t t0 = rdtsc_start();
-        fn();
-        uint64_t t1 = rdtsc_end();
-        samples.push_back(cycles_to_ns(t1 - t0));
-    }
-
-    // Sort for percentile calculations
-    std::vector<double> sorted = samples;
-    std::sort(sorted.begin(), sorted.end());
-
-    const size_t n = sorted.size();
-
-    auto pct = [&](double p) -> double {
-        if (n == 0) return 0.0;
-        double idx = (p / 100.0) * static_cast<double>(n - 1);
-        size_t lo  = static_cast<size_t>(idx);
-        size_t hi  = std::min(lo + 1, n - 1);
-        double f   = idx - static_cast<double>(lo);
-        return sorted[lo] * (1.0 - f) + sorted[hi] * f;
-    };
-
-    // Mean
-    double sum = 0.0;
-    for (double v : samples) sum += v;
-    double mean = sum / static_cast<double>(n);
-
-    // Stddev
-    double var = 0.0;
-    for (double v : samples) var += (v - mean) * (v - mean);
-    var /= static_cast<double>(n);
-
-    BenchStats s;
-    s.samples   = n;
-    s.min_ns    = sorted.front();
-    s.max_ns    = sorted.back();
-    s.mean_ns   = mean;
-    s.p50_ns    = pct(50.0);
-    s.p90_ns    = pct(90.0);
-    s.p99_ns    = pct(99.0);
-    s.p999_ns   = pct(99.9);
-    s.stddev_ns = std::sqrt(var);
-
-    return BenchResult{ s, std::move(sorted) };
-}
-
-
-inline std::string BenchStats::to_string(const std::string& label) const {
-    std::ostringstream oss;
-    auto w = [](double v) {
-        std::ostringstream o;
-        o << std::fixed << std::setprecision(2) << v;
-        return o.str();
-    };
-
-    if (!label.empty())
-        oss << "=== " << label << " ===\n";
-
-    oss << "  samples : " << samples          << "\n"
-        << "  min     : " << w(min_ns)   << " ns\n"
-        << "  mean    : " << w(mean_ns)  << " ns\n"
-        << "  stddev  : " << w(stddev_ns)<< " ns\n"
-        << "  p50     : " << w(p50_ns)   << " ns\n"
-        << "  p90     : " << w(p90_ns)   << " ns\n"
-        << "  p99     : " << w(p99_ns)   << " ns\n"
-        << "  p99.9   : " << w(p999_ns)  << " ns\n"
-        << "  max     : " << w(max_ns)   << " ns\n";
-    return oss.str();
-}
-
-inline void BenchStats::print(const std::string& label) const {
-    std::cout << to_string(label);
-}

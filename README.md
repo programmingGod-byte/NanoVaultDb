@@ -1,16 +1,174 @@
-# NanoVaultDb: High-Performance Hybrid SQL & HFT Engine
+# NanoVaultDB
 
-NanoVaultDb is a sophisticated, low-latency relational database engine and high-frequency trading (HFT) matching engine implemented from scratch in C++20. The system is engineered for "Mechanical Sympathy," optimizing software execution with a deep understanding of underlying hardware architectures, including CPU cache hierarchies, SIMD instruction sets, and asynchronous kernel I/O.
+NanoVaultDB is a high-performance experimental database and matching engine written in C++, designed for low-latency workloads and constrained environments.
 
-![System Architecture](./hft_clean/architecture_diagram.png)
+## Key Highlights
 
-## 1. Core Architectural Principles
+- Custom B+ Tree storage engine
+- Low-latency FIFO matching engine
+- SIMD-optimized hot paths
+- Lock-free / low-allocation data paths
+- Sub-microsecond critical operations (microbenchmarked)
+
+NanoVaultDb is implemented from scratch in C++20. The system is engineered for "Mechanical Sympathy," optimizing software execution with a deep understanding of underlying hardware architectures, including CPU cache hierarchies, SIMD instruction sets, and asynchronous kernel I/O.
+
+![System Architecture](./architecture.png)
 
 The entire system is governed by a set of high-performance engineering constraints designed to eliminate non-deterministic behavior and maximize instruction throughput.
 
+## Performance Benchmarks
+
+Benchmarks were conducted on:
+
+- **CPU**: Intel Core i7-13620H (13th Gen)
+- **Cores/Threads**: 10 cores / 16 threads
+- **Max Frequency**: 4.9 GHz
+- **Environment**:
+  - Thread pinned to isolated CPU core
+  - Real-time scheduling policy (SCHED_FIFO)
+  - Pre-allocated memory (no runtime allocations)
+  - Disk I/O disabled during benchmark
+  - Warm-up phase executed before measurement
+
+### Methodology
+
+- Synthetic packet workload (pre-generated pool of 1M packets)
+- Zero-copy packet reuse to avoid allocation overhead
+- High-resolution timing via custom benchmarking utility
+- Focus on **hot-path latency** (not end-to-end system latency)
+
+### System Performance Benchmarks (CPU Pinned, Real-time Priority)
+
+| Scale    | Min      | Mean     | P50 (Median) | P90      | P99       | P99.9     |
+| :------- | :------- | :------- | :----------- | :------- | :-------- | :-------- |
+| **100K** | 17.00 ns | 32.48 ns | 27.00 ns     | 32.00 ns | 103.00 ns | 273.00 ns |
+| **1M**   | 16.00 ns | 33.04 ns | 28.00 ns     | 35.00 ns | 98.00 ns  | 256.00 ns |
+| **10M**  | 16.00 ns | 32.75 ns | 28.00 ns     | 35.00 ns | 98.00 ns  | 257.00 ns |
+| **100M** | 15.00 ns | 32.09 ns | 27.00 ns     | 35.00 ns | 97.00 ns  | 255.00 ns |
+
+## Memory Hierarchy Performance (L1, L2, RAM)
+
+Results gathered using `cachebenchmark.cpp` (1,000,000 iterations per test, pinned to CPU 1):
+
+| Level         | Min      | Mean      | P50 (Median) | P90       | P99       | P99.9     |
+| :------------ | :------- | :-------- | :----------- | :-------- | :-------- | :-------- |
+| **L1 Load**   | 11.00 ns | 13.33 ns  | 13.00 ns     | 14.00 ns  | 15.00 ns  | 19.00 ns  |
+| **L2 Load**   | 11.00 ns | 15.21 ns  | 14.00 ns     | 17.00 ns  | 27.00 ns  | 40.00 ns  |
+| **RAM Load**  | 12.00 ns | 101.12 ns | 96.00 ns     | 117.00 ns | 234.00 ns | 288.00 ns |
+| **L1 Store**  | 10.00 ns | 12.84 ns  | 13.00 ns     | 13.00 ns  | 16.00 ns  | 21.00 ns  |
+| **RAM Store** | 11.00 ns | 19.29 ns  | 18.00 ns     | 19.00 ns  | 89.00 ns  | 157.00 ns |
+
+## Hardware-Level Performance Analysis (100M+ Scale)
+
+Detailed CPU metrics captured via `perf stat` during ultra-scale packet processing (pinned to Isolated Core):
+
+| Metric                                  | Value                    |
+| :-------------------------------------- | :----------------------- |
+| **Instructions Per Cycle (IPC)**        | 2.19                     |
+| **Core Clock Frequency**                | 4.671 GHz                |
+| **Branch Prediction Accuracy**          | 98.92% (1.08% miss rate) |
+| **Execution Efficiency (TMA Retiring)** | 38.9%                    |
+| **Backend Bound (Stalled)**             | 39.8%                    |
+| **Frontend Bound (Stalled)**            | 12.2%                    |
+| **Speculation Overhead**                | 9.1%                     |
+
+### Latency Summary (Ultra-Scale)
+
+- **Mean Latency**: 21.52 ns
+- **P50 (Median)**: 18.00 ns
+- **P99 (Tail)**: 99.00 ns
+
+## Usage & Interaction
+
+### 1. Local CLI Access
+
+The database can be accessed via the terminal using the installed CLI:
+
+```bash
+nanovault
+```
+
+### 2. Remote WebSocket Access (Python)
+
+A Python script is provided to interact with the database remotely:
+
+```bash
+# Install dependencies
+pip install websockets
+
+# Run interactive client
+python3 test_client.py
+```
+
+### 3. systemd Service Management
+
+The engine runs automatically as a background service:
+
+```bash
+# Check status
+sudo systemctl status nanovaultdb
+
+# Restart service
+sudo systemctl restart nanovaultdb
+```
+
+### 4. HFT & SQL Usage Syntax
+
+NanoVaultDB uses a SQL-like DSL for real-time HFT operations. Below are common commands for managing indicators, strategies, and exchange feeds:
+
+#### Indicator & Strategy Management
+
+```sql
+-- Add an indicator from a shared source
+ADD HFT INDICATOR FROM FILE '/path/to/indicator.cpp';
+
+-- Initialize an indicator (e.g., SMA) on a specific symbol
+ADD INDICATOR "sma" ("10") ON SYMBOL 2 COLUMN_NO 0 TICKS 1;
+
+-- Add and enable strategies
+ADD STRATEGY FROM FILE '/path/to/strategy.cpp';
+ENABLE STRATEGY "again" ("10") ON SYMBOL 1 COLUMN_NO 0 TICKS 1;
+
+-- Monitor active strategies or list tables
+LIST STRATEGY;
+LIST TABLE "btc_ticks";
+```
+
+#### Binance Exchange Integration
+
+```sql
+-- Configure Order Book tracking for a symbol
+SET BINANCE ORDER_BOOK ON SYMBOL 2 SYMBOL "BTCUSDT";
+
+-- Configure Data Feeds (OHLC and Live Orders)
+SET BINANCE DATA FEED OHLC "1s" ON SYMBOL 2 SYMBOL "BTCUSDT";
+SET BINANCE DATA FEED LIVE ORDERS ON SYMBOL 3 SYMBOL "BTCUSDT";
+
+-- Enable order execution
+SET BINANCE API_KEY "your_api_key";
+SET BINANCE ORDER EXECUTE;
+```
+
+#### Table Creation & Batch Writing
+
+```sql
+-- Create optimized HFT tables
+CREATE HFT TABLE btc_trades (
+    event_time     DOUBLE PRECISION 0,
+    trade_id       DOUBLE PRECISION 0,
+    price          DOUBLE PRECISION 8,
+    quantity       DOUBLE PRECISION 8,
+    trade_time     DOUBLE PRECISION 0,
+    is_buyer_maker DOUBLE PRECISION 0
+) SYMBOL 3;
+
+-- Enable high-speed batch writing to disk
+ENABLE BATCH WRITING ON TABLE "btc_ticks" TICKS 1;
+```
+
 ### Zero-Allocation Hot Path
 
-The system utilizes custom `MemoryPool` implementations that pre-allocate all critical nodes (SQL rows, B+ Tree nodes, HFT orders) at startup. This eliminates OS-level heap interaction during runtime, preventing memory fragmentation and potential pauses associated with standard allocation.
+The system utilizes custom `MemoryPool`. This eliminates OS-level heap interaction during runtime, preventing memory fragmentation and potential pauses associated with standard allocation.
 
 ### Hardware-Aware Memory Layout
 
@@ -38,16 +196,6 @@ The engine implements a multi-way B+ Tree for primary and unique key indexing.
 - **Persistence**: Index structures are rebuilt automatically on server restart from high-speed binary `.index` files.
 - **Index-Safe Operations**: Updates and deletions maintain structural integrity through atomic pointer swaps and node rebalancing.
 
-### General-Purpose Table Support
-
-Beyond HFT-grade workloads, the SQL engine provides full relational capabilities for standard application tables:
-
-- **Fast Querying**: B+ Tree-backed lookups deliver sub-100ns point queries on general-purpose tables, matching the performance profile of the HFT layer.
-- **Aggregate Operations**: Native support for `SUM`, `COUNT`, `AVG`, `MIN`, and `MAX` over both indexed and full-scan paths.
-- **Full CRUD**: `INSERT`, `SELECT`, `UPDATE`, and `DELETE` are all supported with index-aware execution plans that avoid unnecessary full-table scans.
-- **Shared Indexing Infrastructure**: General tables benefit from the same persistent B+ Tree infrastructure as HFT order tables — including automatic index rebuild on restart and background vacuuming for compaction.
-
-
 ### Background Vacuum and Cleanup
 
 A specialized background vacuum thread periodically cleanses the database by:
@@ -70,12 +218,7 @@ The system implements a strict Price-Time Priority (FIFO) matching algorithm acr
 - **Fixed-Point Arithmetic**: All prices and quantities are handled as 64-bit integers scaled by 1e8, ensuring deterministic math and avoiding floating-point jitter.
 - **O(1) Order Management**: An internal hash map provides instantaneous order retrieval for cancellations and modifications, bypassing the need for linear scans.
 
-### SIMD-Accelerated Hot Paths
-
-The engine leverages AVX-512 and AVX2 instruction sets for parallel task execution.
-
 - **Parallel BBO Discovery**: SIMD primitives allow the engine to scan multiple price levels simultaneously to identify the Best Bid and Offer.
-- **Memory Zeroing**: Non-temporal AVX-512 stores are used to reset large memory blocks without polluting the CPU cache, preserving cache-local data for the matching loop.
 
 ---
 
@@ -101,24 +244,6 @@ Strategies are implemented as standalone modules that consume indicator outputs 
 
 ## 5. High-Performance Networking Stack
 
-### Multi-Client TCP Network Server
-
-A purpose-built TCP server handles concurrent client sessions without sacrificing throughput.
-
-- **Connection Multiplexing**: The server uses non-blocking I/O and an event-driven dispatch loop to manage multiple simultaneous clients on a single thread, avoiding the overhead of a thread-per-client model.
-- **Request Pipelining**: Clients can issue back-to-back SQL or HFT commands without waiting for prior responses to complete, keeping the wire saturated.
-- **Backpressure Handling**: Slow or stalled clients are isolated so they cannot block or degrade service for other active connections.
-
-### From-Scratch WebSocket Server (C++, `epoll`)
-
-The WebSocket implementation is written entirely in C++ with zero external dependencies, designed for maximum throughput and minimal latency.
-
-- **Full Handshake Implementation**: RFC 6455-compliant HTTP upgrade negotiation and SHA-1/Base64 key exchange are handled natively in C++.
-- **`epoll`-Driven Concurrency**: A single `epoll` event loop manages all WebSocket clients simultaneously, scaling to hundreds of concurrent connections without spawning additional threads.
-- **Frame-Level Optimization**: Frame parsing and assembly operate directly on raw socket buffers, avoiding intermediate copies and minimizing heap allocation in the read path.
-- **Broadcast Support**: Market data updates and strategy signals are fanned out to all subscribed WebSocket clients in a single pass through the connection list.
-
-
 ### WebSockets and UDP Ingest
 
 - **Binance Ingestion**: A specialized, non-allocating JSON parser scans incoming WebSocket frames in-place, extracting depth updates with minimal CPU cycles.
@@ -133,30 +258,23 @@ The system utilizes a compact binary stream format for data persistence.
 
 ---
 
-## 6. Python Client Library
+## 5. Performance Metrics
 
-NanoVaultDb ships a native Python extension that exposes the full SQL and HFT API surface without requiring a separate query language layer. It is currently supported in python 3.10, 3.11 and 3.12 and in linux enviroments only. Also the binaries are also available in Nano_db_binaries folder, you can use that directly as well.
-
-
-## 7. Performance Metrics (AVX-512, Isolated Core)
-
-| Component           | Operation             | Latency                 |
-| ------------------- | --------------------- | ----------------------- |
-| **Matching Engine** | Resting Order (Limit) | 11.4 ns                 |
-| **Matching Engine** | Match Round-Trip      | 132.3 ns                |
-| **SQL Engine**      | B+ Tree Point Lookup  | ~45 ns                  |
-| **Persistence**     | Binary Batch Write    | Sub-microsecond (async) |
+| Component           | Operation             | Latency  |
+| ------------------- | --------------------- | -------- |
+| **Matching Engine** | Resting Order (Limit) | 11.4 ns  |
+| **Matching Engine** | Match Round-Trip      | 132.3 ns |
 
 ---
 
-## 8. Project Structure and Module Responsibility
+## 6. Project Structure and Module Responsibility
 
 ### Core Database System
 
 - `main.cpp`: System entry point, REPL execution, and orchestrator.
 - `SQL_PARSER.hpp` / `SQL_LEXER.hpp`: Custom language processing stack.
 - `initialLoad.hpp`: Cold-boot sequence and metadata recovery.
-- `Btrees_testing.hpp`: Implementation of persistent B+ Tree indexing.
+
 - `batchWriter.hpp` / `io_uring_queue.hpp`: Low-level I/O abstraction.
 
 ### HFT Infrastructure (`hft_clean/`)
@@ -168,6 +286,23 @@ NanoVaultDb ships a native Python extension that exposes the full SQL and HFT AP
 
 ---
 
-## 9. Engineering Philisophy: Mechanical Sympathy
+## 7. Engineering Philisophy: Mechanical Sympathy
 
 NanoVaultDb is not merely a database; it is a demonstration of hardware-software co-design. By meticulously controlling memory layouts, instruction paths, and I/O scheduling, the system achieves level of performance typically reserved for institutional-grade proprietary trading systems.
+
+---
+
+## ⚠️ Limitations
+
+- **Microbenchmark Scope**: Current performance figures are based on isolated microbenchmarks; end-to-end system latency may vary based on OS scheduling and network jitter.
+- **Fault Tolerance**: Focused on raw throughput and latency; advanced replication and high-availability features are currently in the experimental phase.
+- **Single-Node Optimization**: The engine is heavily tuned for vertical scaling and single-node performance rather than distributed horizontal scaling.
+- **Protocol Ecosystem**: While it supports high-speed binary and WebSocket interfaces, it lacks compatibility with standard SQL drivers (ODBC/JDBC) found in mature RDBMS.
+
+## 📚 Learnings
+
+- **Mechanical Sympathy**: Validated that software performance is inextricably linked to hardware awareness—optimizing for L1/L2 cache lines and CPU pinning yields 10x gains over generic implementations.
+- **Zero-Allocation Philosophy**: Learned that avoiding the heap in the hot path is the only way to achieve deterministic, "jitter-free" sub-microsecond latency.
+- **Asynchronous I/O Mastery**: Implementing `io_uring` revealed the limitations of traditional synchronous system calls when processing millions of packets per second.
+- **Data Structure Alignment**: Discovered that even subtle misalignments in memory or "false sharing" between threads can create massive performance bottlenecks in high-frequency matching engines.
+- **Fixed-Point Precision**: The necessity of using fixed-point arithmetic instead of floating-point to ensure mathematical determinism and avoid rounding errors in financial matching loops.
