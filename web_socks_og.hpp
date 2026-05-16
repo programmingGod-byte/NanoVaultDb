@@ -1,177 +1,172 @@
 #pragma once
-#include <boost/beast/core.hpp>
-#include <boost/beast/websocket.hpp>
-#include <boost/asio/dispatch.hpp>
-#include <boost/asio/strand.hpp>
-#include <boost/asio/steady_timer.hpp>
-#include <algorithm>
-#include <cstdlib>
-#include <functional>
-#include <iostream>
-#include <memory>
-#include <string>
-#include <thread>
-#include <vector>
-#include <mutex>
-#include <iomanip>
-#include <sstream>
-
+#include<iostream>
+#include<string>
+#include<cstring>     
+#include<netdb.h>   
+#include<unistd.h> 
+#include<openssl/sha.h>
+#include<openssl/bio.h>
+#include<openssl/evp.h>
+#include<openssl/buffer.h>
+#include<netinet/tcp.h>
+#include<sys/epoll.h>
+#include<fcntl.h> 
+#include<vector>
+#include<algorithm>
 #include "global.hpp"
+#include <stop_token>
 #include "utils/cpu_affinity.hpp"
 
-namespace beast = boost::beast;         
-namespace http = beast::http;           
-namespace websocket = beast::websocket; 
-namespace net = boost::asio;            
-using tcp = boost::asio::ip::tcp;       
+#define PORT "6969"
+std::vector<int>clients;
+unsigned char bit1=0b10000001;
+unsigned char bit2=0b0001100;
+unsigned char final[14]={bit1,bit2,'0','0','0','0','0','0','0','0','T','r','u','e'};     
 
-// Forward declaration
-class WebSocketSession;
+std::string base64_encode(const unsigned char* input, int length) {
+    BIO *bmem, *b64;
+    BUF_MEM *bptr;
 
-// Shared state to keep track of active sessions
-class SharedState {
-    std::mutex mutex_;
-    std::vector<std::shared_ptr<WebSocketSession>> sessions_;
+    b64 = BIO_new(BIO_f_base64());
+    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
 
-public:
-    void join(std::shared_ptr<WebSocketSession> session);
-    void leave(std::shared_ptr<WebSocketSession> session);
-    void broadcast(const std::string& message);
-};
+    bmem = BIO_new(BIO_s_mem());
+    b64 = BIO_push(b64, bmem);
 
-// Handles a single WebSocket connection
-class WebSocketSession : public std::enable_shared_from_this<WebSocketSession> {
-    websocket::stream<beast::tcp_stream> ws_;
-    std::shared_ptr<SharedState> state_;
-    beast::flat_buffer buffer_;
+    BIO_write(b64, input, length);
+    BIO_flush(b64);
+    BIO_get_mem_ptr(b64, &bptr);
 
-public:
-    WebSocketSession(tcp::socket&& socket, std::shared_ptr<SharedState> state)
-        : ws_(std::move(socket)), state_(state) {}
+    std::string result(bptr->data, bptr->length);
+    BIO_free_all(b64);
 
-    void run() {
-        ws_.set_option(websocket::stream_base::timeout::suggested(beast::role_type::server));
-        ws_.async_accept(beast::bind_front_handler(&WebSocketSession::on_accept, shared_from_this()));
-    }
-
-    void on_accept(beast::error_code ec) {
-        if (ec) return;
-        state_->join(shared_from_this());
-        do_read();
-    }
-
-    void do_read() {
-        ws_.async_read(buffer_, beast::bind_front_handler(&WebSocketSession::on_read, shared_from_this()));
-    }
-
-    void on_read(beast::error_code ec, std::size_t bytes_transferred) {
-        boost::ignore_unused(bytes_transferred);
-        if (ec == websocket::error::closed) {
-            state_->leave(shared_from_this());
-            return;
-        }
-        if (ec) {
-            state_->leave(shared_from_this());
-            return;
-        }
-        buffer_.consume(buffer_.size());
-        do_read();
-    }
-
-    void send(const std::string& message) {
-        auto ss = shared_from_this();
-        net::dispatch(ws_.get_executor(), [ss, message]() {
-            ss->ws_.async_write(net::buffer(message), [](beast::error_code, std::size_t) {});
-        });
-    }
-};
-
-// Implementations for SharedState methods after WebSocketSession is fully defined
-inline void SharedState::join(std::shared_ptr<WebSocketSession> session) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    sessions_.push_back(std::move(session));
+    return result;
 }
 
-inline void SharedState::leave(std::shared_ptr<WebSocketSession> session) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto it = std::find(sessions_.begin(), sessions_.end(), session);
-    if (it != sessions_.end()) sessions_.erase(it);
+bool do_handshake(int new_fd){
+    char buffer[2048];
+    int bytes=recv(new_fd,buffer,2047,0);
+    if(bytes<=0) return false;
+    buffer[bytes]='\0';
+    std::string req(buffer);
+    std::string swk;
+    std::string tp1 = "Sec-WebSocket-Key: ";
+
+    size_t p = req.find(tp1);
+    if (p != std::string::npos) {
+        size_t start = p + tp1.length();
+            size_t end = req.find("\r\n", start);
+            swk = req.substr(start, end - start);
+    } else {
+        return false;
+    }
+    // std::cout<<"Sec-WebSocket-Key: "<<swk<<std::endl;
+    std::string GUID="258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+    std::string tp=swk+GUID;
+    unsigned char hash[SHA_DIGEST_LENGTH];
+    SHA1((unsigned char*)tp.c_str(),tp.length(),hash);
+    std::string acceptance_key=base64_encode(hash,SHA_DIGEST_LENGTH);
+    std::string r="HTTP/1.1 101 Switching Protocols\r\n"
+                "Upgrade: websocket\r\n"
+                "Connection: Upgrade\r\n"
+                "Sec-WebSocket-Accept: " + acceptance_key + "\r\n\r\n";
+
+    if(send(new_fd,r.c_str(),r.length(),0)==-1){
+        perror("send");
+        std::cout<<"send failed";
+        return false;
+    }
+    return true;
 }
 
-inline void SharedState::broadcast(const std::string& message) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    for (auto const& session : sessions_) {
-        session->send(message);
-    }
-}
-
-// Accepts incoming connections and launches sessions
-class Listener : public std::enable_shared_from_this<Listener> {
-    net::io_context& ioc_;
-    tcp::acceptor acceptor_;
-    std::shared_ptr<SharedState> state_;
-
-public:
-    Listener(net::io_context& ioc, tcp::endpoint endpoint, std::shared_ptr<SharedState> state)
-        : ioc_(ioc), acceptor_(ioc.get_executor()), state_(state) {
-        beast::error_code ec;
-        acceptor_.open(endpoint.protocol(), ec);
-        acceptor_.set_option(net::socket_base::reuse_address(true), ec);
-        acceptor_.bind(endpoint, ec);
-        acceptor_.listen(net::socket_base::max_listen_connections, ec);
-    }
-
-    void run() { do_accept(); }
-
-private:
-    void do_accept() {
-        acceptor_.async_accept(net::make_strand(ioc_), beast::bind_front_handler(&Listener::on_accept, shared_from_this()));
-    }
-
-    void on_accept(beast::error_code ec, tcp::socket socket) {
-        if (!ec) {
-            std::make_shared<WebSocketSession>(std::move(socket), state_)->run();
-        }
-        do_accept();
-    }
-};
-
-inline void init_web_sockets(std::stop_token st, int cpu_id) {
+void init_web_sockets(std::stop_token st, int cpu_id){
     pin_thread_to_cpu(cpu_id);
+    struct sockaddr_storage their_addr;
+    socklen_t addr_size;
+    struct addrinfo hints,*res;
+    int sockfd,new_fd;
+    memset(&hints,0,sizeof hints);
+    hints.ai_family=AF_UNSPEC;
+    hints.ai_socktype=SOCK_STREAM;
+    hints.ai_flags=AI_PASSIVE;
 
-    net::io_context ioc{1};
-    auto state = std::make_shared<SharedState>();
-
-    auto const address = net::ip::make_address("0.0.0.0");
-    auto const port = static_cast<unsigned short>(6969);
-    std::make_shared<Listener>(ioc, tcp::endpoint{address, port}, state)->run();
-
-    net::steady_timer timer(ioc, std::chrono::milliseconds(1));
-    
-    std::function<void(beast::error_code)> poll_queue;
-    poll_queue = [&](beast::error_code ec) {
-        if (ec || st.stop_requested()) return;
-
-        web_socket_Packet pkt;
-        while (web_socket_queue.pop(pkt)) {
-            std::stringstream ss;
-            ss << std::setw(4) << std::setfill('0') << pkt.symbol;
-            ss << std::setw(4) << std::setfill('0') << pkt.strategyIndex;
-            ss << "True";
-            
-            state->broadcast(ss.str());
-        }
-
-        timer.expires_after(std::chrono::milliseconds(1));
-        timer.async_wait(poll_queue);
-    };
-
-    timer.async_wait(poll_queue);
-
-    while (!st.stop_requested()) {
-        ioc.poll();
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
+    if (getaddrinfo(NULL,PORT,&hints,&res)!=0){
+        perror("getaddrinfo");
+        return;
     }
-    
-    ioc.stop();
+    sockfd=socket(res->ai_family,res->ai_socktype,res->ai_protocol);
+    if (sockfd==-1){
+        perror("socket");
+        return;
+    }
+    if(bind(sockfd,res->ai_addr,res->ai_addrlen)==-1){
+        perror("bind");
+        return;
+    }
+    listen(sockfd,10);
+    fcntl(sockfd,F_SETFL,O_NONBLOCK);
+
+    int epollfd=epoll_create1(0);
+    struct epoll_event e,events[100];
+
+    e.events=EPOLLIN;
+    e.data.fd=sockfd;
+    epoll_ctl(epollfd,EPOLL_CTL_ADD,sockfd,&e);
+
+    while(!st.stop_requested()){
+        int n=epoll_wait(epollfd,events,100,100);
+        
+        for (int i=0;i<n;i++){
+            int fd=events[i].data.fd;
+            if (fd==sockfd){
+                int newfd=accept(sockfd,NULL,NULL);
+                if (newfd==-1) continue;            
+                if (!do_handshake(newfd)) {
+                    close(newfd);
+                    continue;
+                }
+                fcntl(newfd,F_SETFL,O_NONBLOCK);
+                int flag=1;
+                setsockopt(newfd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
+                
+                e.events=EPOLLIN;
+                e.data.fd=newfd;
+                epoll_ctl(epollfd,EPOLL_CTL_ADD,newfd,&e);
+                clients.push_back(newfd);
+                
+            }else{
+                char tmp[512];
+                int r=recv(fd,tmp,sizeof(tmp),MSG_DONTWAIT);
+                if (r<=0){
+                    close(fd);
+                    clients.erase(std::remove(clients.begin(), clients.end(), fd),clients.end());
+                }
+            }
+        }
+        web_socket_Packet pkt;
+        if (web_socket_queue.pop(pkt)){
+            #pragma GCC unroll 4
+            for (int i=0;i<4;i++){
+                final[5-i]='0'+pkt.symbol%10;
+                pkt.symbol/=10;
+            }
+            #pragma GCC unroll 4
+            for (int i=0;i<4;i++){
+                final[9-i]='0'+pkt.strategyIndex%10;
+                pkt.strategyIndex/=10;
+            }
+            for (int newfd:clients){
+                if (send(newfd,final,14,0)<=0){
+                    close(newfd);
+                }
+            }
+        }
+    }
+    // char*msg="True";
+    // int len=strlen(msg);
+    // if (send(new_fd,msg,len,0)==-1){
+    //     perror("send");
+    //     return 0;
+    // }
+
 }

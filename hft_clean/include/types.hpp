@@ -17,8 +17,10 @@
 // ---------------------------------------------------------------------------
 // Compiler hints
 // ---------------------------------------------------------------------------
+#ifndef LIKELY
 #define LIKELY(x) __builtin_expect(!!(x), 1)
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#endif
 #define FORCE_INLINE __attribute__((always_inline)) inline
 #define CACHE_LINE 64
 #define CACHE_ALIGNED __attribute__((aligned(CACHE_LINE)))

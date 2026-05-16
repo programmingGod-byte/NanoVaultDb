@@ -1438,7 +1438,7 @@ public:
 
                 return val;
             }
-
+            return r;
         }
         else if(match(TokenType::APPLY)){
             rewind();

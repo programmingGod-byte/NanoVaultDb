@@ -298,7 +298,7 @@ void loadAllNodesOfBtreeForPrimaryKey(TreeVariant &tree,std::string dbName, int6
                 break;
             }
 
-            IndexNode node{start, end};
+            IndexNode node{start, static_cast<int16_t>(end)};
             DEBUG_LOG("id " << id << " start " << start << " end " << end);
             std::visit([id, node](auto &treePtr)
                        {
@@ -447,7 +447,7 @@ void loadAllNodesOfBtreeForUniqueKey(TreeVariant &tree,std::string dbName, int64
                 break;
             }
 
-            IndexNode node{start, end};
+            IndexNode node{start, static_cast<int16_t>(end)};
             DEBUG_LOG("id ");
             std::visit([](auto &&value)
                        { DEBUG_LOG(value); }, id);

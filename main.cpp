@@ -29,6 +29,20 @@ void setup() {
   worker_threads.emplace_back(init_web_sockets, 3);
   worker_threads.emplace_back(tradeHandler::run_trade_handler, 4);
 }
+std::string sha256(const string& input) {
+    unsigned char hash[256];
+    SHA256(reinterpret_cast<const unsigned char*>(input.c_str()),input.size(),hash);
+    stringstream ss;
+    for (int i=0;i<256;i++) ss<<hex<<setw(2)<<setfill('0')<<(int)hash[i];
+    return ss.str();
+}
+std::string get_id(){
+    std::ifstream f("/sys/class/dmi/id/product_uuid");
+    std::string uuid;
+    f>>uuid;
+    uuid=sha256(uuid);
+    return uuid;
+}
 
 string readLineWithHistory(vector<string> &history, int &historyIndex) {
   termios oldt, newt;
@@ -95,6 +109,9 @@ string readLineWithHistory(vector<string> &history, int &historyIndex) {
 }
 
 int main(int argc, char const *argv[]) {
+  // std::string msg=get_id();
+  // cout<<msg<<endl;
+  // if (msg!=get_msg_from_server) throw runtime_error("Firstly run download.exe file with sudo permissions");
   ExchangeHelper::load_api_keys();
   initialDatabseLoad();
   HFT::InitalStorage::initialIndicatorLoad();
@@ -108,23 +125,23 @@ int main(int argc, char const *argv[]) {
 
   setup();
   std::vector<std::string> testSQLs = {
-      // R"(
-      //     CREATE DATABASE test2;
-      // )",
-      // R"(
-      // CREATE TABLE StudentRolls (
-      //     id INT PRIMARY KEY AUTO_INCREMENT,
-      //     roll_no VARCHAR(10) NOT NULL UNIQUE
-      // );
-      // // // // // // // // // // )",
-      // R"(
-      // INSERT INTO StudentRolls (roll_no)
-      // VALUES ("Hey");
-      // )",
-      // R"(
-      // INSERT INTO StudentRolls (roll_no)
-      // VALUES ("Hello");
-      // )",
+      R"(
+          CREATE DATABASE test2;
+      )",
+      R"(
+      CREATE TABLE StudentRolls (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          roll_no VARCHAR(10) NOT NULL UNIQUE
+      );
+      // // // // // // // // // )",
+      R"(
+      INSERT INTO StudentRolls (roll_no)
+      VALUES ("Hey");
+      )",
+      R"(
+      INSERT INTO StudentRolls (roll_no)
+      VALUES ("Hello");
+      )",
       // R"(
       // UPDATE StudentRolls SET roll_no="WH" WHERE roll_no="Hey";
       // )",
