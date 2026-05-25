@@ -157,6 +157,63 @@ void parseEnableBatchStatement(std::unique_ptr<EnableStatement> &&statement) {
   parser->saveToFile(currentDb);
 }
 
+void parseDisableBatchStatement(std::unique_ptr<DisableStatement> &&statement){
+  std::string currentDb =
+      dbDirectoryPath + "/" + currentDatabase + ".shivam" + ".db";
+  std::cout << currentDb << "\n";
+  if (!MyUtility::checkIfFileExist(currentDb)) {
+    throw std::runtime_error(
+        std::format("the file {} does not exist", currentDb));
+  }
+
+  std::shared_ptr<JSONParser> parser = std::make_shared<JSONParser>();
+
+  if (!parser->loadFromFile(currentDb)) {
+    std::cerr << "Failed to load file: " << currentDb << std::endl;
+    throw std::runtime_error("Failed to load file: " + currentDb);
+  }
+
+  JSONParser::JSONValue rootValue = parser->getObject(0);
+  JSONParser::JSONObject &rootObj =
+      std::get<JSONParser::JSONObject>(rootValue.value);
+
+  JSONParser::JSONArray &tablesArray =
+      std::get<JSONParser::JSONArray>(rootObj["tables"].value);
+  for (auto &tableVal : tablesArray) {
+    JSONParser::JSONObject &table =
+        std::get<JSONParser::JSONObject>(tableVal.value);
+
+    std::string tableName = std::get<std::string>(table["name"].value);
+    if (tableName == statement->tableName) {
+      int64_t symbol = -1;
+      auto symbolIt = table.find("symbol");
+      if (symbolIt != table.end() &&
+          !std::holds_alternative<std::nullptr_t>(symbolIt->second.value)) {
+        if (std::holds_alternative<int>(symbolIt->second.value)) {
+          symbol = std::get<int>(symbolIt->second.value);
+        } else if (std::holds_alternative<std::string>(symbolIt->second.value)) {
+          symbol = std::stoll(std::get<std::string>(symbolIt->second.value));
+        } else if (std::holds_alternative<double>(symbolIt->second.value)) {
+          symbol = static_cast<int64_t>(std::get<double>(symbolIt->second.value));
+        } else {
+          throw std::runtime_error("Invalid type for symbol in JSON");
+        }
+      }
+
+      if (symbol != -1) {
+        HFT::symbolAccessArray[symbol].storageTicks = -1;
+        batchWriterFileMap.erase(symbol);
+      }
+      table["ticks"] = JSONParser::JSONValue(-1);
+      break;
+    }
+  }
+
+  parser->removeObject(0);
+  parser->appendValue(rootValue);
+  parser->saveToFile(currentDb);
+}
+
 bool writeHFTDataToIndexFile(int symbol) {
   auto it = batchWriterFileMap.find(symbol);
   auto *__restrict entry = &HFT::symbolAccessArray[symbol];

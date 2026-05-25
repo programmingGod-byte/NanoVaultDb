@@ -125,23 +125,23 @@ int main(int argc, char const *argv[]) {
 
   setup();
   std::vector<std::string> testSQLs = {
-      R"(
-          CREATE DATABASE test2;
-      )",
-      R"(
-      CREATE TABLE StudentRolls (
-          id INT PRIMARY KEY AUTO_INCREMENT,
-          roll_no VARCHAR(10) NOT NULL UNIQUE
-      );
-      // // // // // // // // // )",
-      R"(
-      INSERT INTO StudentRolls (roll_no)
-      VALUES ("Hey");
-      )",
-      R"(
-      INSERT INTO StudentRolls (roll_no)
-      VALUES ("Hello");
-      )",
+      // R"(
+      //     CREATE DATABASE test10;
+      // )",
+      // R"(
+      // CREATE TABLE StudentRolls (
+      //     id INT PRIMARY KEY AUTO_INCREMENT,
+      //     roll_no INT NOT NULL UNIQUE
+      // );
+      // // // // // // // // // // // )",
+      // R"(
+      // INSERT INTO StudentRolls (roll_no)
+      // VALUES (10);
+      // )",
+      // R"(
+      //   INSERT INTO StudentRolls (roll_no)
+      //   VALUES (15);
+      // )",
       // R"(
       // UPDATE StudentRolls SET roll_no="WH" WHERE roll_no="Hey";
       // )",
@@ -156,22 +156,31 @@ int main(int argc, char const *argv[]) {
       // SELECT * FROM StudentRolls;
       // )",
       // R"(
-      // STATISTICS COUNT FROM StudentRolls ON roll_no WHERE roll_no="Woho";
+      // STATISTICS MEAN FROM StudentRolls ON roll_no WHERE roll_no="Woho";
       // )",
       // R"(
       // STATISTICS COUNT FROM StudentRolls ON roll_no WHERE roll_no="W";
       // )" ,
       // R"(
-      // CREATE HFT TABLE btc_ticks (
+      // CREATE HFT TABLE testing_hft_table (
       //     timestamp  DOUBLE PRECISION 0,
       //     price      DOUBLE PRECISION 10,
       //     volume     DOUBLE PRECISION 2,
       //     side       DOUBLE PRECISION 0
-      // ) SYMBOL 1 TOP;
+      // ) SYMBOL 6 TOP;
       // )",
 
-      //       R"(
-      // ADD INDICATOR "obi"  ( "10" ) ON SYMBOL 2 COLUMN_NO 3 ticks 100;
+      // R"(
+      // ADD INDICATOR "sma"  ( "10" ) ON SYMBOL 6 COLUMN_NO 2 ticks 100;
+      // )",
+      //  R"(
+      // ENABLE STRATEGY "again" ("10") on symbol 6 column_no 0 ticks 10;
+      // )",
+      // R"(
+      // ENABLE BATCH WRITING ON TABLE "testing_hft_table" TICKS 100;
+      // )",
+      // R"(
+      // DISABLE BATCH WRITING ON TABLE "testing_hft_table";
       // )",
       // R"(
       // DROP TABLE StudentRolls;

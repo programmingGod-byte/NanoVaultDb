@@ -39,6 +39,7 @@ enum class TokenType
     NULL_T,UNIQUE,
     STATISTICS,
     
+    DISABLE,
      INT, VARCHAR, PRIMARY, KEY,
 
     // Literals
@@ -124,6 +125,7 @@ static const std::unordered_map<std::string, TokenType> keywords = {
     {"precision",TokenType::PRECISION},
     {"ticks",TokenType::TICKS},
     {"hft",TokenType::HFT},
+    {"disable",TokenType::DISABLE},
     {"symbol",TokenType::SYMBOL},
     {"top",TokenType::TOP},
     {"add",TokenType::ADD},
@@ -215,6 +217,7 @@ std::string typeToString(TokenType TYPE)
     case TokenType::OHLC:return "ohlc";
     case TokenType::LIVE: return "live";
     case TokenType::ORDERS:return "orders";
+    case TokenType::DISABLE: return "disable";
 
     case TokenType::BINANCE: return "binance";
     case TokenType::API_KEY : return "api_key";

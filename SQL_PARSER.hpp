@@ -783,7 +783,21 @@ public:
         return stmt;
     }
 
+    std::unique_ptr<DisableStatement> parseDisableStatement(){
+        expect(TokenType::DISABLE, "expect token type disable");
+        expect(TokenType::BATCH, "expect token type batch");
 
+        expect(TokenType::WRITING, "expect token type writing");
+        expect(TokenType::ON, "expect token type on");
+        expect(TokenType::TABLE, "expect token type table");
+        Token * table =expect(TokenType::STRING, "expect table name to be string");
+        std::string table_name = table->VALUE;
+
+        std::unique_ptr<DisableStatement> statement = std::make_unique<DisableStatement>();
+        statement->tableName = table_name;
+
+        return statement;
+    }
     std::unique_ptr<FetchIndicatorStatement> parseFetchIndicatorStatement(){
         expect(TokenType::FETCH, "expect token type fetch");
         expect(TokenType::INDICATOR, "expect token type indicator");
@@ -1413,6 +1427,21 @@ public:
 
             return e.str();
 
+            }
+        }
+        else if (match(TokenType::DISABLE)){
+            rewind();
+            try {
+                std::unique_ptr<DisableStatement> statement = parseDisableStatement();
+                statement->print();
+                BatchWriter::parseDisableBatchStatement(std::move(statement));
+                return r;
+            } catch (const std::exception & err) {
+                std::stringstream e;
+            e << "{" << "\"success\": false, " << "\"error\": \"\033[31m"
+            << err.what() << "\033[0m\"" << "}";
+
+            return e.str();
             }
         }
         else if(match(TokenType::LIST)){

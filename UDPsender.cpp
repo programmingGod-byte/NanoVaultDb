@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
     while (true) {
         TickPacket pkt{};
 
-        int64_t tick      = to_fixed(1, 0);
+        int64_t tick      = to_fixed(6, 0);
         int64_t ts        = now_us();
         int64_t price_fx  = to_fixed(price, 10);
         int64_t vol_fx    = to_fixed(volume, 2);

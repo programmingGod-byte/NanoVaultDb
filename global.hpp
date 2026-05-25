@@ -167,7 +167,7 @@ enum class ASTNodeType {
   CREATE_STATEMENT,
   ENABLE_STATEMENT,
   STATISTICS_STATEMENT,
-
+  DISABLE_STATEMENT,
   // HFT_STATEMENT
   ADD_HFT_INDICATOR_STATEMENT,
   ADD_HFT_INDICATOR_ON_TABLE_STATEMENT,
@@ -261,6 +261,15 @@ struct LogicalExpression : public Expression {
       : left(std::move(left)), op(op), right(std::move(right)) {}
   ASTNodeType getType() const override {
     return ASTNodeType::LOGICAL_EXPRESSION;
+  }
+};
+struct DisableStatement : ASTNode {
+  int64_t ticks;
+  std::string tableName;
+  ASTNodeType getType() const override { return ASTNodeType::DISABLE_STATEMENT; }
+  void print() {
+    std::cout << std::format("the ticks is {} and tableName is {}", ticks,
+                             tableName);
   }
 };
 
