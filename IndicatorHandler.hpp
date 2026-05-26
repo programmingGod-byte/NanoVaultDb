@@ -51,6 +51,27 @@ void registerIndicator(
 void registerAllIndicators(
     std::unordered_map<std::string, IndicatorFactory> &registry) {
   registerIndicator<SMA, HFT::MAXHFTSYMBOL>(registry, "sma", smaPool);
+  registerIndicator<OBI, HFT::MAXHFTSYMBOL>(registry, "obi", obiPool);
+  registerIndicator<ADX, HFT::MAXHFTSYMBOL>(registry, "adx", adxPool);
+  registerIndicator<ATR, HFT::MAXHFTSYMBOL>(registry, "atr", atrPool);
+  registerIndicator<AwesomeOscillator, HFT::MAXHFTSYMBOL>(registry, "awesome_osc", awesomeOscillatorPool);
+  registerIndicator<BollingerBands, HFT::MAXHFTSYMBOL>(registry, "bollinger", bollingerBandsPool);
+  registerIndicator<CCI, HFT::MAXHFTSYMBOL>(registry, "cci", cciPool);
+  registerIndicator<DonchianChannels, HFT::MAXHFTSYMBOL>(registry, "donchian_channels", donchianChannelsPool);
+  registerIndicator<EMA, HFT::MAXHFTSYMBOL>(registry, "ema", emaPool);
+  registerIndicator<Ichimoku, HFT::MAXHFTSYMBOL>(registry, "ichimoku", ichimokuPool);
+  registerIndicator<KeltnerChannels, HFT::MAXHFTSYMBOL>(registry, "keltner_channels", keltnerChannelsPool);
+  registerIndicator<MACD, HFT::MAXHFTSYMBOL>(registry, "macd", macdPool);
+  registerIndicator<MFI, HFT::MAXHFTSYMBOL>(registry, "mfi", mfiPool);
+  registerIndicator<OBV, HFT::MAXHFTSYMBOL>(registry, "obv", obvPool);
+  registerIndicator<ParabolicSAR, HFT::MAXHFTSYMBOL>(registry, "parabolic_sar", parabolicSARPool);
+  registerIndicator<PivotPoints, HFT::MAXHFTSYMBOL>(registry, "pivot_points", pivotPointsPool);
+  registerIndicator<RSI, HFT::MAXHFTSYMBOL>(registry, "rsi", rsiPool);
+  registerIndicator<Stochastic, HFT::MAXHFTSYMBOL>(registry, "stochastic", stochasticPool);
+  registerIndicator<TRIX, HFT::MAXHFTSYMBOL>(registry, "trix", trixPool);
+  registerIndicator<Volume, HFT::MAXHFTSYMBOL>(registry, "volume", volumePool);
+  registerIndicator<VWAP, HFT::MAXHFTSYMBOL>(registry, "vwap", vwapPool);
+  registerIndicator<WilliamsR, HFT::MAXHFTSYMBOL>(registry, "williams", williamsRPool);
 }
 
 void parseIndicators(std::unique_ptr<AddHftIndicatorStatement> &&statement) {

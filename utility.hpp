@@ -21,6 +21,33 @@
 namespace MyUtility {           // Define a namespace called MyUtility
 namespace fs = std::filesystem; // Shorthand for std::filesystem
 
+constexpr int64_t POW10[] = {
+    1LL,
+    10LL,
+    100LL,
+    1000LL,
+    10000LL,
+    100000LL,
+    1000000LL,
+    10000000LL,
+    100000000LL,
+    1000000000LL,
+    10000000000LL,
+    100000000000LL,
+    1000000000000LL,
+    10000000000000LL,
+    100000000000000LL,
+    1000000000000000LL,
+    10000000000000000LL,
+    100000000000000000LL,
+    1000000000000000000LL
+};
+
+inline double from_fixed(int64_t val, int64_t precision) {
+  if (precision < 0 || precision >= 19) return static_cast<double>(val);
+  return static_cast<double>(val) / static_cast<double>(POW10[precision]);
+}
+
 std::string extractBaseName(const std::string &filename) {
   fs::path p(filename);
   std::string stem = p.stem().string(); // first .stem() call removes ".db"

@@ -60,7 +60,7 @@ public:
         static_cast<OBI*>(p)->on_tick();
     }
 
-    void set_parameter(){
+    void set_parameter(const std::vector<std::string> & /*params*/){
         
     }
 

@@ -1,4 +1,4 @@
-ADD HFT INDICATOR FROM FILE '/home/shivam/Desktop/learning/NanoVaultdp/NanoVaultDb/m_way_tree.cpp';
+ADD HFT INDICATOR FROM FILE '/home/pranab/nano_db_latest/fastindicator/obv.hpp';
 ADD INDICATOR "sma" ("10") ON SYMBOL 2 COLUMN_NO  0 ticks 1;
 if no column then -1
 LIST STRATEGY ;

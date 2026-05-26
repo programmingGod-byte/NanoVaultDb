@@ -170,9 +170,9 @@ int main(int argc, char const *argv[]) {
       // ) SYMBOL 6 TOP;
       // )",
 
-      // R"(
-      // ADD INDICATOR "sma"  ( "10" ) ON SYMBOL 6 COLUMN_NO 2 ticks 100;
-      // )",
+      R"(
+      ADD INDICATOR "sma"  ( "10" ) ON SYMBOL 6 COLUMN_NO 2 ticks 100;
+      )",
       //  R"(
       // ENABLE STRATEGY "again" ("10") on symbol 6 column_no 0 ticks 10;
       // )",
