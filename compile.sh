@@ -1,2 +1,2 @@
 chmod +x compile.sh
-g++-13 -std=c++20 main.cpp global.cpp hft_clean/src/order_book.cpp hft_clean/src/exchange_adapter.cpp hft_clean/src/market_data_handler.cpp -I hft_clean/include -I hft_clean/src -luring -lcrypto -lssl -lpthread -o main.exe
+g++-13 -O3 -march=native -std=c++20 main.cpp global.cpp hft_clean/src/order_book.cpp hft_clean/src/exchange_adapter.cpp hft_clean/src/market_data_handler.cpp -I hft_clean/include -I hft_clean/src -luring -lcrypto -lssl -lpthread -o main.exe

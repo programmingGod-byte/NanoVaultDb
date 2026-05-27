@@ -96,10 +96,10 @@ bool checkDBexist(const std::string &name)
 
 void initialDatabseLoad()
 {
-    std::string currentDbMeta = "./db/current_db.meta";
-    if (!fs::is_directory("./db")){
-        fs::create_directories("./db/tables");
-        std::ofstream file("./db/current_db.meta");
+    std::string currentDbMeta = currentDbPath;
+    if (!fs::is_directory(dbDirectoryPath)){
+        fs::create_directories(tableDirectory);
+        std::ofstream file(currentDbPath);
         if (file.is_open()){
             file << "{\"current_db\":\"\"}";
             file.close();

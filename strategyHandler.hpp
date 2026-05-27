@@ -48,8 +48,11 @@ void registerStrategy(
 
 void registerAllStrategy(
     std::unordered_map<std::string, StrategyFactory> &registry) {
-  registerStrategy<BASIC, HFT::MAXHFTSYMBOL>(registry, "basic", basicPool);
+        // REGISTRATIONS_START
   registerStrategy<AGAIN, HFT::MAXHFTSYMBOL>(registry, "again", againPool);
+  registerStrategy<BASIC, HFT::MAXHFTSYMBOL>(registry, "basic", basicPool);
+  registerStrategy<BASIC3, HFT::MAXHFTSYMBOL>(registry, "basic3", basicPool3);
+  // REGISTRATIONS_END
 }
 
 void parseStrategy(std::unique_ptr<AddHftStrategyStatement> &&statement) {

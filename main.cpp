@@ -109,6 +109,30 @@ string readLineWithHistory(vector<string> &history, int &historyIndex) {
 }
 
 int main(int argc, char const *argv[]) {
+  std::string db_path = "";
+  for (int i = 1; i < argc; ++i) {
+      std::string arg = argv[i];
+      if (arg == "--db-path" || arg == "-d") {
+          if (i + 1 < argc) {
+              db_path = argv[++i];
+          } else {
+              std::cerr << "Error: --db-path requires a path argument." << std::endl;
+              return 1;
+          }
+      } else if (arg.rfind("--", 0) != 0 && arg.rfind("-", 0) != 0) {
+          db_path = arg;
+      }
+  }
+
+  if (!db_path.empty()) {
+      if (db_path.back() == '/' || db_path.back() == '\\') {
+          db_path.pop_back();
+      }
+      dbDirectoryPath = db_path;
+      currentDbPath = dbDirectoryPath + "/current_db.meta";
+      tableDirectory = dbDirectoryPath + "/tables";
+      std::cout << "Using database directory: " << dbDirectoryPath << std::endl;
+  }
   // std::string msg=get_id();
   // cout<<msg<<endl;
   // if (msg!=get_msg_from_server) throw runtime_error("Firstly run download.exe file with sudo permissions");
@@ -170,9 +194,9 @@ int main(int argc, char const *argv[]) {
       // ) SYMBOL 6 TOP;
       // )",
 
-      R"(
-      ADD INDICATOR "sma"  ( "10" ) ON SYMBOL 6 COLUMN_NO 2 ticks 100;
-      )",
+      // R"(
+      // ADD INDICATOR "sma"  ( "10" ) ON SYMBOL 6 COLUMN_NO 2 ticks 100;
+      // )",
       //  R"(
       // ENABLE STRATEGY "again" ("10") on symbol 6 column_no 0 ticks 10;
       // )",

@@ -1,3 +1,4 @@
 #pragma once
-#include "./faststrategy/basic.hpp"
 #include "./faststrategy/again.hpp"
+#include "./faststrategy/basic.hpp"
+#include "./faststrategy/basic3.hpp"

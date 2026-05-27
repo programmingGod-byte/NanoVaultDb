@@ -8,6 +8,7 @@ async def receive_signals():
     try:
         async with websockets.connect(uri) as websocket:
             print("Connected! Waiting for strategy signals...")
+            ct=0;
             
             while True:
                 # Receive message from the C++ HFT engine
@@ -21,10 +22,12 @@ async def receive_signals():
                     status = message[8:]
                     
                     print(f"--- Strategy Signal Received ---")
+                    print(f"| Id: {ct}")
                     print(f"| Symbol Index:   {symbol}")
                     print(f"| Strategy Index: {strategy_id}")
                     print(f"| Signal Status:  {status}")
                     print(f"--------------------------------")
+                    ct+=1
                 else:
                     print(f"Received malformed message: {message}")
 

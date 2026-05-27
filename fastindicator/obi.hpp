@@ -60,16 +60,21 @@ public:
         static_cast<OBI*>(p)->on_tick();
     }
 
+    static inline int64_t get_result(void* p) {
+        return static_cast<OBI*>(p)->result();
+    }
+
     void set_parameter(const std::vector<std::string> & /*params*/){
         
     }
 
     FastIndicators::IndicatorEntry create() {
-         FastIndicators::IndicatorEntry e;
-    e.checked = 1;
-    e.ptr = this;
-    e.fn = &OBI::run;
-    e.indicatorIndex = -1;
-    return e;
+        FastIndicators::IndicatorEntry e;
+        e.checked = 1;
+        e.ptr = this;
+        e.fn = &OBI::run;
+        e.result_fn = &OBI::get_result;
+        e.indicatorIndex = -1;
+        return e;
     }
 };

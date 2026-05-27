@@ -168,6 +168,7 @@ enum class ASTNodeType {
   ENABLE_STATEMENT,
   STATISTICS_STATEMENT,
   DISABLE_STATEMENT,
+  EXECUTE_FILE_STATEMENT,
   // HFT_STATEMENT
   ADD_HFT_INDICATOR_STATEMENT,
   ADD_HFT_INDICATOR_ON_TABLE_STATEMENT,
@@ -418,6 +419,15 @@ struct AddIndicatorOnTableStatement : public ASTNode {
                          "name is path is {} \n",
                          column_no, symbol, indicator.first, indicator.second);
     std::cout << print.str() << "\n";
+  }
+};
+
+struct Executebyfile: public ASTNode {
+  std::vector<std::string> commands;
+  ASTNodeType getType() const override {
+    return ASTNodeType::EXECUTE_FILE_STATEMENT;
+  }
+  void print(){
   }
 };
 

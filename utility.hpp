@@ -175,7 +175,7 @@ void changeCurrentDb(const std::string &newDbName) {
 
 std::pair<bool, std::string> checkIfTableExist(const std::string &table) {
   std::stringstream s;
-  s << "./db/";
+  s << dbDirectoryPath << "/";
   s << currentDatabase;
   s << ".shivam.db";
   PythonLikeJSONParser parser;

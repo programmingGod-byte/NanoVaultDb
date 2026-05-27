@@ -42,7 +42,7 @@ public:
 
     this->window = window;
 
-    std::cout << "basic strategy window Window set to: " << this->window << "\n";
+    std::cout << "basic strategy window set to: " << this->window << "\n";
   }
 
   inline bool result()  {

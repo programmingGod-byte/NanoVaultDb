@@ -1,9 +1,0 @@
-[build-system]
-requires = ["setuptools>=42", "wheel", "pybind11>=2.6.1"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "NanoVaultDb"
-version = "1.1.0"
-description = "NanoVaultDb is a high-performance Python client for a C++20 relational database and HFT matching engine built for sub-microsecond latency. Linux Only"
-requires-python = ">=3.10"

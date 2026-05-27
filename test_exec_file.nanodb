@@ -1,0 +1,3 @@
+ADD INDICATOR "sma" ("10") ON SYMBOL 6 COLUMN_NO  0 ticks 1;
+ADD INDICATOR "ema" ("100") ON SYMBOL 6 COLUMN_NO  0 ticks 1;
+ENABLE STRATEGY "basic3" ("10") on symbol 6 column_no 0 ticks 1;

@@ -96,7 +96,7 @@ public:
     std::string currentDb = "";
     Parser(const std::vector<Token *> &tokens) : tokens(tokens)
     {
-        ensureCurrentDbFile("db/current_db.meta");
+        ensureCurrentDbFile(currentDbPath);
     }
 
     void ensureCurrentDbFile(const std::string &filePath)
@@ -273,7 +273,7 @@ public:
 
         std::string newDb = dbName->VALUE;
         std::stringstream filename;
-        filename << "./db/" << newDb << ".shivam.db";
+        filename << dbDirectoryPath << "/" << newDb << ".shivam.db";
 
         if (!MyUtility::checkIfFileExist(filename.str()))
         {
@@ -615,7 +615,7 @@ public:
             stmt->isDatabase = true;
             stmt->name = expect(TokenType::IDENTIFIER, "Expected database name")->VALUE;
             std::stringstream filename;
-            filename << "./db/";
+            filename << dbDirectoryPath << "/";
             filename << stmt->name;
             filename << ".shivam.db";
 
@@ -810,6 +810,68 @@ public:
         std::from_chars(token->VALUE.data(), token->VALUE.data() + token->VALUE.size(),symbol);
         std::unique_ptr<FetchIndicatorStatement> statement  = std::make_unique<FetchIndicatorStatement>();
         statement->symbol = symbol;
+        return statement;
+    }
+    std::unique_ptr<Executebyfile> parseExecuteByFileStatement(){
+        expect(TokenType::EXECUTE, "expect token execute");
+        expect(TokenType::DB, "expect token db");
+        expect(TokenType::FILE, "expect token file");
+
+        Token * file_name = expect(TokenType::STRING, "expect file path to be string");
+        std::string file_path = file_name->VALUE;
+        fs::path p(file_path);
+        if (p.extension() != ".nanodb") {
+            throw std::runtime_error("Error: the file's extension should be .nanodb");
+        }
+        auto statement = std::make_unique<Executebyfile>();
+
+        std::ifstream file(file_path);
+        if (!file.is_open()) {
+            throw std::runtime_error("Error: Could not open file '" + file_path + "'");
+        }
+
+        std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        file.close();
+        std::vector<std::string> raw_commands;
+        std::string current_cmd;
+        for (char c : content) {
+            if (c == ';') {
+                std::string trimmed = current_cmd;
+                trimmed.erase(trimmed.begin(), std::find_if(trimmed.begin(), trimmed.end(), [](unsigned char ch) {
+                    return ch != ' ' && ch != '\t' && ch != '\r' && ch != '\n';
+                }));
+                trimmed.erase(std::find_if(trimmed.rbegin(), trimmed.rend(), [](unsigned char ch) {
+                    return ch != ' ' && ch != '\t' && ch != '\r' && ch != '\n';
+                }).base(), trimmed.end());
+
+                if (!trimmed.empty()) {
+                    raw_commands.push_back(trimmed);
+                }
+                current_cmd.clear();
+            } else {
+                current_cmd += c;
+            }
+        }
+        std::string trimmed = current_cmd;
+        trimmed.erase(trimmed.begin(), std::find_if(trimmed.begin(), trimmed.end(), [](unsigned char ch) {
+            return ch != ' ' && ch != '\t' && ch != '\r' && ch != '\n';
+        }));
+        trimmed.erase(std::find_if(trimmed.rbegin(), trimmed.rend(), [](unsigned char ch) {
+            return ch != ' ' && ch != '\t' && ch != '\r' && ch != '\n';
+        }).base(), trimmed.end());
+        if (!trimmed.empty()) {
+            raw_commands.push_back(trimmed);
+        }
+        for (auto &cmd : raw_commands) {
+            statement->commands.push_back(cmd);
+            std::string cmd_with_semicolon = cmd + ";";
+            Lexer file_lexer(cmd_with_semicolon);
+            std::vector<Token *> file_tokens = file_lexer.tokenize();
+            Parser file_parser(file_tokens);
+            file_parser.parse();
+        }
+
+        match(TokenType::SEMICOLON);
         return statement;
     }
 
@@ -1223,9 +1285,6 @@ public:
             // std::cout << "Unknown Expression Type\n";
         }
     }
-
-    // BINANCE PARSING
-
     std::unique_ptr<BinanceOrderBookStatement> parse_Binance_OrderBookStatement(){
             std::unique_ptr<BinanceOrderBookStatement> statement = std::make_unique<BinanceOrderBookStatement>();
             expect(TokenType::SET, "expect token type set");
@@ -1345,10 +1404,7 @@ public:
             return e.str();
         }
         
-        }
-        
-        // binance Thing
-        else if(match(TokenType::SET)){
+        }else if(match(TokenType::SET)){
             if(match(TokenType::BINANCE)){
                 if(match(TokenType::API_KEY)){
                     rewind(); rewind(); rewind();
@@ -1384,12 +1440,7 @@ public:
             return e.str();
 
 
-        }
-        
-        
-        
-        
-        else if (match(TokenType::STATISTICS)){
+        }else if (match(TokenType::STATISTICS)){
             try{
                 rewind();
                 std::unique_ptr<StatisticsStatement> stmt = parseStatisticsStatement();
@@ -1625,9 +1676,20 @@ public:
 
             return e.str();
             }
-        }else {
-        throw std::runtime_error("Unsupported SQL statement or missing statement "
-                                "type (CREATE, INSERT, SELECT, DROP, USE, MEMORY)");
+        } else if (match(TokenType::EXECUTE)) {
+            rewind(); 
+            try {
+                std::unique_ptr<Executebyfile> statement = parseExecuteByFileStatement();
+                return r;
+            } catch (const std::exception &err) {
+                std::stringstream e;
+                e << "{" << "\"success\": false, " << "\"error\": \"\033[31m"
+                  << err.what() << "\033[0m\"" << "}";
+                return e.str();
+            }
+                
+        } else {
+        throw std::runtime_error("Unsupported SQL statement or missing statement ");
         }
     }
 

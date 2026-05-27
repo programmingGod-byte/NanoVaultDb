@@ -45,7 +45,15 @@ std::string base64_encode(const unsigned char* input, int length) {
 
 bool do_handshake(int new_fd){
     char buffer[2048];
-    int bytes=recv(new_fd,buffer,2047,0);
+    int bytes = -1;
+    for (int attempt = 0; attempt < 50; attempt++) {
+        bytes = recv(new_fd, buffer, 2047, MSG_DONTWAIT);
+        if (bytes > 0) break;
+        if (bytes == 0) return false;
+        if (errno != EAGAIN && errno != EWOULDBLOCK) return false;
+        struct timespec ts{0, 100000}; 
+        nanosleep(&ts, nullptr);
+    }
     if(bytes<=0) return false;
     buffer[bytes]='\0';
     std::string req(buffer);
@@ -99,6 +107,9 @@ void init_web_sockets(std::stop_token st, int cpu_id){
         perror("socket");
         return;
     }
+    int opt=1;
+    setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt));
+    setsockopt(sockfd,SOL_SOCKET,SO_REUSEPORT,&opt,sizeof(opt));
     if(bind(sockfd,res->ai_addr,res->ai_addrlen)==-1){
         perror("bind");
         return;
@@ -114,50 +125,55 @@ void init_web_sockets(std::stop_token st, int cpu_id){
     epoll_ctl(epollfd,EPOLL_CTL_ADD,sockfd,&e);
 
     while(!st.stop_requested()){
-        int n=epoll_wait(epollfd,events,100,100);
-        
-        for (int i=0;i<n;i++){
-            int fd=events[i].data.fd;
-            if (fd==sockfd){
-                int newfd=accept(sockfd,NULL,NULL);
-                if (newfd==-1) continue;            
-                if (!do_handshake(newfd)) {
-                    close(newfd);
-                    continue;
-                }
-                fcntl(newfd,F_SETFL,O_NONBLOCK);
-                int flag=1;
-                setsockopt(newfd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
-                
-                e.events=EPOLLIN;
-                e.data.fd=newfd;
-                epoll_ctl(epollfd,EPOLL_CTL_ADD,newfd,&e);
-                clients.push_back(newfd);
-                
-            }else{
-                char tmp[512];
-                int r=recv(fd,tmp,sizeof(tmp),MSG_DONTWAIT);
-                if (r<=0){
-                    close(fd);
-                    clients.erase(std::remove(clients.begin(), clients.end(), fd),clients.end());
-                }
-            }
-        }
         web_socket_Packet pkt;
-        if (web_socket_queue.pop(pkt)){
-            #pragma GCC unroll 4
-            for (int i=0;i<4;i++){
-                final[5-i]='0'+pkt.symbol%10;
-                pkt.symbol/=10;
-            }
-            #pragma GCC unroll 4
-            for (int i=0;i<4;i++){
-                final[9-i]='0'+pkt.strategyIndex%10;
-                pkt.strategyIndex/=10;
-            }
-            for (int newfd:clients){
-                if (send(newfd,final,14,0)<=0){
-                    close(newfd);
+        if (web_socket_queue.pop(pkt)) {
+            do {
+                #pragma GCC unroll 4
+                for (int i=0;i<4;i++){
+                    final[5-i]='0'+pkt.symbol%10;
+                    pkt.symbol/=10;
+                }
+                #pragma GCC unroll 4
+                for (int i=0;i<4;i++){
+                    final[9-i]='0'+pkt.strategyIndex%10;
+                    pkt.strategyIndex/=10;
+                }
+                for (auto it = clients.begin(); it != clients.end(); ) {
+                    int newfd = *it;
+                    if (send(newfd, final, 14, MSG_DONTWAIT) <= 0) {
+                        close(newfd);
+                        epoll_ctl(epollfd, EPOLL_CTL_DEL, newfd, nullptr);
+                        it = clients.erase(it);
+                    } else {
+                        ++it;
+                    }
+                }
+            } while (web_socket_queue.pop(pkt));
+        } else {
+            int n = epoll_wait(epollfd, events, 100, 1);
+            for (int i=0;i<n;i++){
+                int fd=events[i].data.fd;
+                if (fd==sockfd){
+                    int newfd=accept(sockfd,NULL,NULL);
+                    if (newfd==-1) continue;
+                    if (!do_handshake(newfd)) {
+                        close(newfd);
+                        continue;
+                    }
+                    fcntl(newfd,F_SETFL,O_NONBLOCK);
+                    int flag=1;
+                    setsockopt(newfd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
+                    e.events=EPOLLIN;
+                    e.data.fd=newfd;
+                    epoll_ctl(epollfd,EPOLL_CTL_ADD,newfd,&e);
+                    clients.push_back(newfd);
+                }else{
+                    char tmp[512];
+                    int r=recv(fd,tmp,sizeof(tmp),MSG_DONTWAIT);
+                    if (r<=0){
+                        close(fd);
+                        clients.erase(std::remove(clients.begin(), clients.end(), fd),clients.end());
+                    }
                 }
             }
         }

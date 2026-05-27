@@ -8,7 +8,7 @@
 #include "../FastStrategy.hpp"
 #include <iostream>
 
-class alignas(CACHELINE) AGAIN {
+class alignas(CACHELINE) BASIC3 {
 
 private:
   int64_t tick = 0;
@@ -20,7 +20,7 @@ private:
   const int64_t *precision = nullptr;
 
 public:
-  AGAIN(std::array<HFT::TableColumn, HFT::MAXHFTSYMBOL> &symbolAccessArr,
+  BASIC3(std::array<HFT::TableColumn, HFT::MAXHFTSYMBOL> &symbolAccessArr,
       int64_t tick, HFT::TableColumn &tableColumn) {
 
     this->symbolAccessArr = &symbolAccessArr;
@@ -53,7 +53,7 @@ public:
           return false;
         }
         count = 0;
-        auto const * __restrict entry = &this->tableColumn->indicators[0];
+        auto const * __restrict entry = &this->tableColumn->indicators[1];
         int64_t val = entry->result_fn(entry->ptr);
         HFT_DEBUG_FILE("basic.txt", std::format("running val is {} is true {}",val,val > this->window));
         return val > this->window;
@@ -63,16 +63,16 @@ public:
     
   }
 
-  static void run(void *p) { static_cast<AGAIN *>(p)->on_tick(); }
+  static void run(void *p) { static_cast<BASIC3 *>(p)->on_tick(); }
     static bool get_result(void *p) {
-    return static_cast<AGAIN *>(p)->result();
+    return static_cast<BASIC3 *>(p)->result();
   }
   FastStrategy::StrategyEntry create() {
     FastStrategy::StrategyEntry e;
     e.checked = 1;
     e.ptr = this;
-    e.fn = &AGAIN::run;
-    e.result_fn = &AGAIN::get_result;
+    e.fn = &BASIC3::run;
+    e.result_fn = &BASIC3::get_result;
     e.strategyIndex = -1;
     return e;
   }

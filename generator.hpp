@@ -61,7 +61,7 @@ namespace CommandRunner
 
             globalTableCache[currentDatabase].erase(name);
 
-            std::string filePath = "./db/" + currentDatabase + ".shivam.db";
+            std::string filePath = dbDirectoryPath + "/" + currentDatabase + ".shivam.db";
             JSONParser parser(filePath);
 
             if (!parser.loadFromFile())
@@ -95,7 +95,7 @@ namespace CommandRunner
             // std::cout << "Table '" << name << "' dropped successfully.\n";
         }
         else {
-            std::string metaFile = "./db/" + name + ".shivam.db";
+            std::string metaFile = dbDirectoryPath + "/" + name + ".shivam.db";
 
             if (!fs::exists(metaFile)) {
                 throw std::runtime_error("Database '" + name + "' does not exist.");
@@ -553,7 +553,7 @@ namespace CommandRunner
             {"top", JSONParser::JSONValue(stmt->top)},
             {"columns", JSONParser::JSONValue(columnArray)}};
 
-        std::string filePath = "./db/" + currentDatabase + ".shivam.db";
+        std::string filePath = dbDirectoryPath + "/" + currentDatabase + ".shivam.db";
         JSONParser parser(filePath);
 
         if (!parser.loadFromFile())
@@ -650,7 +650,7 @@ namespace CommandRunner
             {"columns", JSONParser::JSONValue(columnArray)}
         };
 
-        std::string filePath = "./db/" + currentDatabase + ".shivam.db";
+        std::string filePath = dbDirectoryPath + "/" + currentDatabase + ".shivam.db";
         JSONParser parser(filePath);
 
         if (!parser.loadFromFile())

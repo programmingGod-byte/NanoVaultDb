@@ -38,6 +38,8 @@ enum class TokenType
     AUTO_INCREMENT,
     NULL_T,UNIQUE,
     STATISTICS,
+    EXECUTE,
+    DB,
     
     DISABLE,
      INT, VARCHAR, PRIMARY, KEY,
@@ -130,6 +132,8 @@ static const std::unordered_map<std::string, TokenType> keywords = {
     {"top",TokenType::TOP},
     {"add",TokenType::ADD},
     {"indicator",TokenType::INDICATOR},
+    {"execute",TokenType::EXECUTE},
+    {"db", TokenType::DB},
     {"file",TokenType::FILE},
     {"on",TokenType::ON},
     {"column_no",TokenType::COLUMN_NO},
@@ -218,6 +222,8 @@ std::string typeToString(TokenType TYPE)
     case TokenType::LIVE: return "live";
     case TokenType::ORDERS:return "orders";
     case TokenType::DISABLE: return "disable";
+    case TokenType::EXECUTE: return "execute";
+    case TokenType::DB: return "db";
 
     case TokenType::BINANCE: return "binance";
     case TokenType::API_KEY : return "api_key";
