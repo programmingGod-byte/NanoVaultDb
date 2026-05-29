@@ -140,15 +140,27 @@ void parseStrategy(std::unique_ptr<AddHftStrategyStatement> &&statement) {
         std::format("JSON strategy: symbol {} does not exist", symIdx));
   }
   int64_t availableIndicators = HFT::symbolAccessArray[symIdx].indicatorIndex;
-  for (char c : indicators_expr) {
-    if (c >= '0' && c <= '9') {
-      int id = c - '0';
-      if (id >= availableIndicators) {
-        throw std::runtime_error(
-            std::format("JSON strategy '{}': indicator index {} out of range "
-                        "(symbol {} has {} indicators)",
-                        stratName, id, symIdx, availableIndicators));
+  {
+    for (size_t i = 0; i < indicators_expr.size(); ) {
+      char c = indicators_expr[i];
+      if (c >= '0' && c <= '9') {
+        size_t j = i;
+        while (j < indicators_expr.size() && indicators_expr[j] >= '0' && indicators_expr[j] <= '9') ++j;
+        if (j < indicators_expr.size() && indicators_expr[j] == 'z') {
+          i = j + 1;
+          continue;
+        }
+        int id = c - '0';
+        if (id >= availableIndicators) {
+          throw std::runtime_error(
+              std::format("JSON strategy '{}': indicator index {} out of range "
+                          "(symbol {} has {} indicators)",
+                          stratName, id, symIdx, availableIndicators));
+        }
+        i = j;
+        continue;
       }
+      ++i;
     }
   }
 
@@ -161,26 +173,72 @@ void parseStrategy(std::unique_ptr<AddHftStrategyStatement> &&statement) {
     std::string resultExpr;  
     HFT::TableColumn* tableColumn = nullptr;
 
+    int64_t evalExpr(size_t& pos) {
+      int64_t val = evalTerm(pos);
+      while (pos < resultExpr.size()) {
+        char c = resultExpr[pos];
+        if (c == '+') { ++pos; val += evalTerm(pos); }
+        else if (c == '-') { ++pos; val -= evalTerm(pos); }
+        else break;
+      }
+      return val;
+    }
+
+    int64_t evalTerm(size_t& pos) {
+      int64_t val = evalFactor(pos);
+      while (pos < resultExpr.size()) {
+        char c = resultExpr[pos];
+        if (c == '*') { ++pos; val *= evalFactor(pos); }
+        else if (c == '/') {
+          ++pos;
+          int64_t d = evalFactor(pos);
+          val = (d != 0) ? val / d : 0;
+        }
+        else break;
+      }
+      return val;
+    }
+
+    int64_t evalFactor(size_t& pos) {
+      while (pos < resultExpr.size() && resultExpr[pos] == ' ') ++pos;
+      if (pos >= resultExpr.size()) return 0;
+
+      char c = resultExpr[pos];
+      if (c == '(') {
+        ++pos; 
+        int64_t val = evalExpr(pos);
+        while (pos < resultExpr.size() && resultExpr[pos] == ' ') ++pos;
+        if (pos < resultExpr.size() && resultExpr[pos] == ')') ++pos; 
+        return val;
+      }
+
+      // Digit sequence: if followed by 'z' it's a literal number, otherwise indicator index
+      if (c >= '0' && c <= '9') {
+        int64_t num = 0;
+        size_t start = pos;
+        while (pos < resultExpr.size() && resultExpr[pos] >= '0' && resultExpr[pos] <= '9') {
+          num = num * 10 + (resultExpr[pos] - '0');
+          ++pos;
+        }
+        if (pos < resultExpr.size() && resultExpr[pos] == 'z') {
+          ++pos; // consume 'z' — it's a literal
+          return num;
+        }
+        // Bare digit(s) = indicator index (single digit expected)
+        int id = static_cast<int>(resultExpr[start] - '0');
+        return tableColumn->indicators[id].result_fn(tableColumn->indicators[id].ptr);
+      }
+
+      return 0;
+    }
+
     inline bool result() {
       count++;
       if (LIKELY(count != tick)) return false;
       count = 0;
 
-      int64_t val = 0;
-      bool pos = true;   
-      for (size_t i = 0; i < resultExpr.size(); i++) {
-        char c = resultExpr[i];
-        if (c == '+') {pos = true; continue; }
-        if (c == '-') {pos = false; continue; }
-        if (c >= '0' && c <= '9') {
-          int id = c - '0';
-          // bounds already validated at registration time — safe to read
-          int64_t ival = tableColumn->indicators[id].result_fn(
-                             tableColumn->indicators[id].ptr);
-          if (pos) val += ival;
-          else val -= ival;
-        }
-      }
+      size_t pos = 0;
+      int64_t val = evalExpr(pos);
 
       if (op == "greater-than") return val > threshold;
       if (op == "less-than")    return val < threshold;
