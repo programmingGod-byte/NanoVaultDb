@@ -90,8 +90,6 @@ string readLineWithHistory(vector<string> &history, int &historyIndex) {
       }
       continue;
     }
-
-    // Handle backspace properly (127 for DEL, 8 for BS)
     if (c == 127 || c == 8) {
       if (!input.empty()) {
         input.pop_back();
@@ -185,14 +183,14 @@ int main(int argc, char const *argv[]) {
       // R"(
       // STATISTICS COUNT FROM StudentRolls ON roll_no WHERE roll_no="W";
       // )" ,
-      // R"(
-      // CREATE HFT TABLE testing_hft_table (
-      //     timestamp  DOUBLE PRECISION 0,
-      //     price      DOUBLE PRECISION 10,
-      //     volume     DOUBLE PRECISION 2,
-      //     side       DOUBLE PRECISION 0
-      // ) SYMBOL 6 TOP;
-      // )",
+      R"(
+      CREATE HFT TABLE testing_hft_table (
+          timestamp  DOUBLE PRECISION 0,
+          price      DOUBLE PRECISION 10,
+          volume     DOUBLE PRECISION 2,
+          side       DOUBLE PRECISION 0
+      ) SYMBOL 6 TOP;
+      )",
 
       // R"(
       // ADD INDICATOR "sma"  ( "10" ) ON SYMBOL 6 COLUMN_NO 2 ticks 100;

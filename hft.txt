@@ -1,14 +1,14 @@
 ADD HFT INDICATOR FROM FILE '/home/pranab/nano_db_latest/fastindicator/obv.hpp';
-ADD INDICATOR "sma" ("10") ON SYMBOL 2 COLUMN_NO  0 ticks 1;
+ADD INDICATOR "sma" ("10") ON SYMBOL 6 COLUMN_NO  0 ticks 1;
 if no column then -1
 LIST STRATEGY ;
 LIST TABLE TABLE_NAME;
 STATISTICS MEAN FROM "table_name" ON "column_name" WHERE condition;
 ENABLE BATCH WRITING ON TABLE "testing_hft_table" TICKS 1000;
 // APPLY WEBSOCKET  ON STRATEGY "strategy_name" URL "string";
-ADD STRATEGY FROM FILE '/home/shivam/Desktop/learning/NanoVaultdp/NanoVaultDb/m_way_tree.cpp';
-ENABLE STRATEGY "again" ("10") on symbol 1 column_no 0 ticks 1;
-
+ADD STRATEGY FROM JSON FILE '/home/pranab/nano_db_latest/custom.json';
+ENABLE STRATEGY "custom" ("-1") on symbol 6 column_no 0 ticks 1;
+ENABLE STRATEGY "basic" ("10") on symbol 6 column_no 0 ticks 1;
 
 
 SET BINANCE ORDER_BOOK ON SYMBOL 2 SYMBOL "BTCUSDT";

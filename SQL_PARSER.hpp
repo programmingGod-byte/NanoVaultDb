@@ -1697,12 +1697,16 @@ public:
         expect(TokenType::ADD, "expect token type add");
         expect(TokenType::STRATEGY, "expect token type strategy" );
         expect(TokenType::FROM, "expect token type from");
-
+        expect(TokenType::JSON, "expect token type json");
         expect(TokenType::FILE, "expect token type file");
 
         std::unique_ptr<AddHftStrategyStatement> statement = std::make_unique<AddHftStrategyStatement>();
 
         Token * file_name = expect(TokenType::STRING  ,"expect file name to be string" );
+        fs::path p(file_name->VALUE);
+        if (p.extension() != ".json") {
+            throw std::runtime_error("Error: the file should be a json file");
+        }
         statement->file_path = file_name->VALUE;
         return statement;
     }

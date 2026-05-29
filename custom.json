@@ -1,0 +1,7 @@
+{
+    "name": "custom",
+    "symbol": "6",
+    "threshold": "10",
+    "operator": "greater-than",
+    "result": "0"
+}

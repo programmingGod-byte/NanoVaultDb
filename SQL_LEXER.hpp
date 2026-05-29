@@ -40,6 +40,7 @@ enum class TokenType
     STATISTICS,
     EXECUTE,
     DB,
+    JSON,
     
     DISABLE,
      INT, VARCHAR, PRIMARY, KEY,
@@ -127,6 +128,7 @@ static const std::unordered_map<std::string, TokenType> keywords = {
     {"precision",TokenType::PRECISION},
     {"ticks",TokenType::TICKS},
     {"hft",TokenType::HFT},
+    {"json",TokenType::JSON},
     {"disable",TokenType::DISABLE},
     {"symbol",TokenType::SYMBOL},
     {"top",TokenType::TOP},
@@ -224,6 +226,7 @@ std::string typeToString(TokenType TYPE)
     case TokenType::DISABLE: return "disable";
     case TokenType::EXECUTE: return "execute";
     case TokenType::DB: return "db";
+    case TokenType::JSON :return "json";
 
     case TokenType::BINANCE: return "binance";
     case TokenType::API_KEY : return "api_key";

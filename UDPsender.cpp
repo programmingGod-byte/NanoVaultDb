@@ -35,8 +35,19 @@ static int64_t now_us() {
 }
 
 int main(int argc, char* argv[]) {
-    const char* host = (argc > 1) ? argv[1] : "127.0.0.1";
-    int         port = (argc > 2) ? std::atoi(argv[2]) : 9090;
+    const char* host   = "127.0.0.1";
+    int         port   = 9090;
+    int64_t     symbol = 6;
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if ((arg == "--symbol" || arg == "-s") && i + 1 < argc) {
+            symbol = std::stoll(argv[++i]);
+        } else if (i == 1 && arg[0] != '-') {
+            host = argv[i];
+        } else if (i == 2 && arg[0] != '-') {
+            port = std::atoi(argv[i]);
+        }
+    }
 
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) { perror("socket"); return 1; }
@@ -46,7 +57,8 @@ int main(int argc, char* argv[]) {
     dest.sin_port   = htons(port);
     inet_pton(AF_INET, host, &dest.sin_addr);
 
-    std::cout << "Sending ticks to " << host << ":" << port << "\n";
+    std::cout << "Sending ticks to " << host << ":" << port
+              << "  symbol=" << symbol << "\n";
 
     double price  = 1.00;
     double volume = 1.50;
@@ -55,13 +67,12 @@ int main(int argc, char* argv[]) {
     while (true) {
         TickPacket pkt{};
 
-        int64_t tick      = to_fixed(6, 0);
         int64_t ts        = now_us();
         int64_t price_fx  = to_fixed(price, 10);
         int64_t vol_fx    = to_fixed(volume, 2);
         int64_t side_fx   = (count % 3);
 
-        pkt.tick        = htobe64(tick);
+        pkt.tick        = htobe64(symbol);
         pkt.timestamp   = htobe64(ts);
         pkt.price       = htobe64(price_fx);
         pkt.volume      = htobe64(vol_fx);
@@ -69,7 +80,7 @@ int main(int argc, char* argv[]) {
         pkt.askOrder    = htobe64(to_fixed(74300.53000000, 10));
         pkt.askQuantity = htobe64(to_fixed(4.51596000, 10));
         pkt.bidOrder    = htobe64(to_fixed(74300.52000000, 10));
-        pkt.bidQuantity = htobe64(to_fixed(4.51596000, 10)); 
+        pkt.bidQuantity = htobe64(to_fixed(4.51596000, 10));
 
         ssize_t sent = sendto(sock,
                               &pkt, sizeof(pkt), 0,
@@ -80,7 +91,7 @@ int main(int argc, char* argv[]) {
             break;
         }
 
-        std::cout << "sent tick #" << tick
+        std::cout << "sent tick #" << symbol
                   << " count=" << count
                   << " timestamp=" << ts
                   << " price=" << price
