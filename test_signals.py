@@ -2,7 +2,7 @@ import asyncio
 import websockets
 
 async def receive_signals():
-    uri = "ws://localhost:6969"
+    uri = "ws://localhost:4900"
     print(f"Connecting to {uri}...")
     
     try:

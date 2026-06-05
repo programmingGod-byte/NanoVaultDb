@@ -3,7 +3,7 @@ import websockets
 import sys
 
 async def connect_and_query():
-    uri = "ws://localhost:6969"
+    uri = "ws://localhost:4900"
     try:
         async with websockets.connect(uri) as websocket:
             print(f"Connected to NanoVaultDb at {uri}")
@@ -40,7 +40,7 @@ if __name__ == "__main__":
         asyncio.run(connect_and_query())
 
 async def connect_and_query_oneshot(query):
-    uri = "ws://localhost:6969"
+    uri = "ws://localhost:4900"
     async with websockets.connect(uri) as websocket:
         await websocket.send(query)
         response = await websocket.recv()

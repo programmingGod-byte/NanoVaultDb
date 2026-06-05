@@ -212,7 +212,6 @@ void parseStrategy(std::unique_ptr<AddHftStrategyStatement> &&statement) {
         return val;
       }
 
-      // Digit sequence: if followed by 'z' it's a literal number, otherwise indicator index
       if (c >= '0' && c <= '9') {
         int64_t num = 0;
         size_t start = pos;
@@ -221,10 +220,9 @@ void parseStrategy(std::unique_ptr<AddHftStrategyStatement> &&statement) {
           ++pos;
         }
         if (pos < resultExpr.size() && resultExpr[pos] == 'z') {
-          ++pos; // consume 'z' — it's a literal
+          ++pos; 
           return num;
         }
-        // Bare digit(s) = indicator index (single digit expected)
         int id = static_cast<int>(resultExpr[start] - '0');
         return tableColumn->indicators[id].result_fn(tableColumn->indicators[id].ptr);
       }

@@ -17,7 +17,7 @@
 #include <stop_token>
 #include "utils/cpu_affinity.hpp"
 
-#define PORT "6969"
+#define PORT "4900"
 std::vector<int>clients;
 unsigned char bit1=0b10000001;
 unsigned char bit2=0b0001100;
