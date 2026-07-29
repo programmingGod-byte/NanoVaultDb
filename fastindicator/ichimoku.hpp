@@ -8,6 +8,7 @@
 #include <vector>
 #include <algorithm>
 
+
 class alignas(CACHELINE) Ichimoku {
 
 private:
