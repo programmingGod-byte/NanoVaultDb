@@ -13,6 +13,7 @@ private:
     
 
     HFT::TableColumn* tableColumn = nullptr;
+    // 
 
     // scaled imbalance (to avoid float)
 
