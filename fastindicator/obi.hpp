@@ -10,6 +10,7 @@ private:
     int64_t tick = 1;
     int64_t count = 0;
     int64_t obi_value = 0;
+    
 
     HFT::TableColumn* tableColumn = nullptr;
 
