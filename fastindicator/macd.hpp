@@ -8,6 +8,7 @@
 #include <vector>
 #include <cmath>
 
+
 class alignas(CACHELINE) MACD {
 
 private:
