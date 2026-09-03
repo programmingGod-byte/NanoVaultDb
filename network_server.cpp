@@ -1,9 +1,11 @@
 #include <iostream>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 #include <algorithm>
 #include <sys/socket.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <cstring>
@@ -72,51 +74,72 @@ std::string handleSQL(const std::string &sql) {
 
 bool sendAll(int fd, const std::string &data) {
     size_t totalSent = 0;
+    const char *base = data.data();
+    const size_t total = data.size();
 
-    while (totalSent < data.size()) {
-        ssize_t sent = send(fd, data.data() + totalSent,
-                            data.size() - totalSent, 0);
+    while (totalSent < total) {
+        ssize_t sent = send(fd, base + totalSent, total - totalSent, MSG_NOSIGNAL);
         if (sent <= 0)
             return false;
-        totalSent += sent;
+        totalSent += static_cast<size_t>(sent);
     }
     return true;
 }
 
+static inline bool isExitOrQuit(std::string_view stmt) {
+    if (stmt.size() > 32)
+        return false;
+
+    char trimmed[8];
+    size_t n = 0;
+
+    for (char c : stmt) {
+        if (!std::isspace(static_cast<unsigned char>(c))) {
+            if (n >= sizeof(trimmed))
+                return false;
+            trimmed[n++] = c;
+        }
+    }
+
+    std::string_view t(trimmed, n);
+    return t == "exit;" || t == "quit;";
+}
+
 void handleClient(int client_fd) {
     std::string clientBuffer;
+    clientBuffer.reserve(8192);
+
+    char buffer[4096];
 
     while (!shuttingDown.load()) {
-        char buffer[4096] = {0};
         int bytesRead = read(client_fd, buffer, sizeof(buffer));
 
         if (bytesRead <= 0)
             break;
 
-        clientBuffer.append(buffer, bytesRead);
+        clientBuffer.append(buffer, static_cast<size_t>(bytesRead));
 
+        size_t start = 0;
         size_t pos;
-        while ((pos = clientBuffer.find(';')) != std::string::npos) {
-            std::string sql = clientBuffer.substr(0, pos + 1);
-            clientBuffer.erase(0, pos + 1);
+        while ((pos = clientBuffer.find(';', start)) != std::string::npos) {
+            std::string_view stmt(clientBuffer.data() + start, pos - start + 1);
 
-            std::string trimmed = sql;
-            trimmed.erase(
-                std::remove_if(trimmed.begin(), trimmed.end(),
-                               [](unsigned char c) { return std::isspace(c); }),
-                trimmed.end());
-
-            if (trimmed == "exit;" || trimmed == "quit;") {
+            if (isExitOrQuit(stmt)) {
                 close(client_fd);
                 return;
             }
 
-            std::string response = handleSQL(sql);
+            std::string response = handleSQL(std::string(stmt));
             if (!sendAll(client_fd, response)) {
                 close(client_fd);
                 return;
             }
+
+            start = pos + 1;
         }
+
+        if (start > 0)
+            clientBuffer.erase(0, start);
     }
 
     close(client_fd);
@@ -172,6 +195,9 @@ int main() {
                 break;
             continue;
         }
+
+        int one = 1;
+        setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
 
         std::lock_guard<std::mutex> lock(clientMutex);
         clientThreads.emplace_back(handleClient, client_fd);
